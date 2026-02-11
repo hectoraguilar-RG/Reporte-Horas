@@ -17,16 +17,15 @@
         table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
         th { background: var(--cap-blue); color: white; padding: 12px; font-size: 0.9rem; border: 1px solid #002244; }
         td { border: 1px solid #ddd; padding: 8px; }
-        .btn { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; margin: 5px 0; width: 100%; transition: 0.3s; }
-        .btn-add { background: #28a745; width: auto; padding: 10px 20px; }
-        .btn-send { background: var(--cap-blue); font-size: 1.1rem; }
-        .btn-view { background: #17a2b8; width: auto; padding: 5px 15px; font-size: 0.8rem; }
-        .btn-copy { background: var(--cap-gold); width: auto; padding: 5px 15px; font-size: 0.8rem; color: #fff; }
+        .btn { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; margin: 5px 0; transition: 0.3s; }
+        .btn-send { background: var(--cap-blue); width: 100%; font-size: 1.1rem; }
+        .btn-copy { background: var(--cap-gold); padding: 5px 15px; font-size: 0.8rem; }
+        .btn-archive { background: #dc3545; padding: 5px 15px; font-size: 0.8rem; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
-        .modal-content { background: white; margin: 5% auto; padding: 20px; width: 90%; max-width: 800px; border-radius: 12px; max-height: 85vh; overflow-y: auto; }
+        .modal-content { background: white; margin: 5% auto; padding: 20px; width: 90%; max-width: 800px; border-radius: 12px; }
         .hidden { display: none; }
         .admin-entry { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
-        @media (max-width: 600px) { .admin-entry { flex-direction: column; align-items: flex-start; } .btn-group { margin-top: 10px; } }
+        .search-bar { width: 100%; padding: 10px; margin-bottom: 15px; border: 2px solid var(--cap-gold); border-radius: 8px; }
     </style>
 </head>
 <body>
@@ -36,8 +35,7 @@
     <div class="header-grid">
         <div class="header-item"><label>Nombre:</label><input type="text" id="nombreEmp"></div>
         <div class="header-item"><label>No. Empleado:</label><input type="text" id="idEmp"></div>
-        <div class="header-item">
-            <label>Área:</label>
+        <div class="header-item"><label>Área:</label>
             <select id="areaEmp">
                 <option value="">-- Seleccionar --</option>
                 <option value="Primaria">Primaria</option>
@@ -51,7 +49,6 @@
         </div>
         <div class="header-item"><label>Correo CAP:</label><input type="email" id="correoEmp"></div>
     </div>
-
     <div style="overflow-x:auto;">
         <table>
             <thead><tr><th>Fecha</th><th style="width:80px;">Hrs</th><th>Actividad realizada</th></tr></thead>
@@ -64,47 +61,35 @@
             </tbody>
         </table>
     </div>
-    <div style="text-align:right; font-size: 1.2rem; padding: 15px; font-weight: bold; color: var(--cap-blue);">
-        Total: <span id="totalHoras">0</span> hrs
-    </div>
-    <button class="btn btn-add" onclick="agregarFila()">+ Añadir fila</button>
+    <div style="text-align:right; font-size: 1.2rem; padding: 15px; font-weight: bold; color: var(--cap-blue);">Total: <span id="totalHoras">0</span> hrs</div>
+    <button class="btn" style="background:#28a745; width:auto; padding:10px 20px;" onclick="agregarFila()">+ Añadir fila</button>
     <button class="btn btn-send" onclick="enviarReporte()">ENVIAR REPORTE QUINCENAL</button>
     <p style="text-align:center;"><a href="#" onclick="toggleView('login-view')" style="color:#888; font-size:0.8rem; text-decoration:none;">Acceso Supervisores</a></p>
 </div>
 
 <div id="login-view" class="card hidden">
     <h3>Acceso Supervisores</h3>
-    <label>Correo:</label><input type="email" id="loginEmail" style="margin-bottom:10px;">
-    <label>Contraseña:</label><input type="password" id="loginPass" style="margin-bottom:15px;">
+    <input type="email" id="loginEmail" placeholder="Correo institucional" style="margin-bottom:10px;">
+    <input type="password" id="loginPass" placeholder="Contraseña" style="margin-bottom:15px;">
     <button class="btn btn-send" onclick="loginSupervisor()">Entrar</button>
-    <button class="btn" style="background:#6c757d" onclick="toggleView('user-view')">Volver</button>
+    <button class="btn" style="background:#6c757d; width:100%;" onclick="toggleView('user-view')">Volver</button>
 </div>
 
 <div id="admin-view" class="card hidden">
     <h3 id="tituloAdmin">Panel de Control</h3>
-    <div id="wrapper-maestro" class="hidden" style="background:#fff3cd; padding:10px; border-radius:8px; margin-bottom:15px; border:1px solid #ffeeba;">
-        <label><b>Modo Jefe - Ver área:</b></label>
-        <select id="filtroMaestro" onchange="cambiarVistaJefe()" style="margin-top:5px;">
-            <option value="Primaria">Primaria</option>
-            <option value="Secundaria">Secundaria</option>
-            <option value="Preparatoria">Preparatoria</option>
-            <option value="Oficios">Oficios</option>
-            <option value="Electricidad">Electricidad</option>
-            <option value="Jardineria">Jardineria</option>
-            <option value="Carpinteria">Carpinteria</option>
-        </select>
+    
+    <div id="wrapper-maestro" class="hidden" style="background:#fff3cd; padding:10px; border-radius:8px; margin-bottom:15px;">
+        <label><b>Modo Jefe - Área:</b></label>
+        <select id="filtroMaestro" onchange="cambiarVistaJefe()"><option value="Primaria">Primaria</option><option value="Secundaria">Secundaria</option><option value="Preparatoria">Preparatoria</option><option value="Oficios">Oficios</option><option value="Electricidad">Electricidad</option><option value="Jardineria">Jardineria</option><option value="Carpinteria">Carpinteria</option></select>
     </div>
-    <div id="lista-reportes">Cargando...</div>
-    <button class="btn" style="background:#dc3545; margin-top:20px;" onclick="location.reload()">Cerrar Sesión</button>
+
+    <input type="text" id="buscador" class="search-bar" placeholder="🔍 Buscar por nombre de empleado..." onkeyup="filtrarPorNombre()">
+
+    <div id="lista-reportes">Cargando reportes...</div>
+    <button class="btn" style="background:#dc3545; width:100%; margin-top:20px;" onclick="location.reload()">Cerrar Sesión</button>
 </div>
 
-<div id="modalDetalle" class="modal">
-    <div class="modal-content">
-        <h3 id="modalTitulo" style="color:var(--cap-blue); margin-top:0;"></h3>
-        <div id="modalCuerpo"></div>
-        <button class="btn" style="background:#6c757d; margin-top:20px;" onclick="cerrarModal()">Cerrar Vista</button>
-    </div>
-</div>
+<div id="modalDetalle" class="modal"><div class="modal-content"><h3 id="modalTitulo"></h3><div id="modalCuerpo"></div><button class="btn" style="background:#6c757d; width:100%; margin-top:20px;" onclick="cerrarModal()">Cerrar</button></div></div>
 
 <script>
     const firebaseConfig = {
@@ -131,6 +116,8 @@
         "manuel.huerta@cap.edu.mx": "Carpinteria"
     };
 
+    let reportesCargados = [];
+
     function agregarFila() {
         const tr = document.createElement('tr');
         tr.innerHTML = '<td><input type="date" class="row-fecha"></td><td><input type="number" class="row-horas" oninput="calcularTotal()" step="0.5"></td><td><input type="text" class="row-act"></td>';
@@ -138,22 +125,19 @@
     }
 
     function calcularTotal() {
-        let t = 0;
-        document.querySelectorAll('.row-horas').forEach(i => t += parseFloat(i.value) || 0);
+        let t = 0; document.querySelectorAll('.row-horas').forEach(i => t += parseFloat(i.value) || 0);
         document.getElementById('totalHoras').innerText = t;
     }
 
     function toggleView(v) {
-        document.getElementById('user-view').classList.add('hidden');
-        document.getElementById('login-view').classList.add('hidden');
-        document.getElementById('admin-view').classList.add('hidden');
+        document.querySelectorAll('.card').forEach(c => c.classList.add('hidden'));
         document.getElementById(v).classList.remove('hidden');
     }
 
     async function enviarReporte() {
         const area = document.getElementById('areaEmp').value;
         const nombre = document.getElementById('nombreEmp').value;
-        if(!area || !nombre) return alert("Nombre y Área obligatorios");
+        if(!area || !nombre) return alert("Falta nombre o área");
         let filas = [];
         document.querySelectorAll('#cuerpoTabla tr').forEach(f => {
             const fecha = f.querySelector('.row-fecha').value;
@@ -165,10 +149,9 @@
             await db.collection("reportes_finales").add({
                 nombre, area, id: document.getElementById('idEmp').value,
                 total: document.getElementById('totalHoras').innerText,
-                actividades: filas, fechaEnvio: new Date().toISOString()
+                actividades: filas, fechaEnvio: new Date().toISOString(), archivado: false
             });
-            alert("✅ Reporte enviado");
-            location.reload();
+            alert("✅ Reporte enviado"); location.reload();
         } catch(e) { alert("Error"); }
     }
 
@@ -179,12 +162,9 @@
             await auth.signInWithEmailAndPassword(email, pass);
             if(email === JEFE_EMAIL) {
                 document.getElementById('wrapper-maestro').classList.remove('hidden');
-                document.getElementById('tituloAdmin').innerText = "Acceso General (Jefe)";
                 cambiarVistaJefe();
             } else {
-                const area = supervisoresAreas[email];
-                document.getElementById('tituloAdmin').innerText = "Panel: " + area;
-                cargarDatos(area);
+                cargarDatos(supervisoresAreas[email]);
             }
             toggleView('admin-view');
         } catch(e) { alert("Error de acceso"); }
@@ -193,71 +173,58 @@
     function cambiarVistaJefe() { cargarDatos(document.getElementById('filtroMaestro').value); }
 
     async function cargarDatos(area) {
-        const snap = await db.collection("reportes_finales").where("area", "==", area).orderBy("fechaEnvio", "desc").get();
+        // Solo traemos reportes que NO estén archivados
+        const snap = await db.collection("reportes_finales")
+                            .where("area", "==", area)
+                            .where("archivado", "==", false)
+                            .orderBy("fechaEnvio", "desc").get();
+        reportesCargados = [];
+        snap.forEach(doc => reportesCargados.push({idDoc: doc.id, ...doc.data()}));
+        renderizarLista(reportesCargados);
+    }
+
+    function renderizarLista(lista) {
         const contenedor = document.getElementById('lista-reportes');
         contenedor.innerHTML = "";
-        snap.forEach(doc => {
-            const r = doc.data();
+        lista.forEach(r => {
             const dataStr = JSON.stringify(r).replace(/"/g, '&quot;');
-            contenedor.innerHTML += `<div class="admin-entry"><div><strong>${r.nombre}</strong><br><small>${r.total} hrs</small></div><div class="btn-group"><button class="btn btn-view" onclick="verDetalle(${dataStr})">Ver</button><button class="btn btn-copy" onclick="copiarReporteHTML(${dataStr})">Copiar Tabla</button></div></div>`;
+            const fechaLegible = new Date(r.fechaEnvio).toLocaleDateString('es-MX', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'});
+            contenedor.innerHTML += `
+                <div class="admin-entry">
+                    <div>
+                        <strong>${r.nombre}</strong><br>
+                        <small>${fechaLegible} | Total: ${r.total} hrs</small>
+                    </div>
+                    <div>
+                        <button class="btn btn-copy" onclick="copiarReporteHTML(${dataStr})">Copiar</button>
+                        <button class="btn btn-archive" onclick="archivarReporte('${r.idDoc}')">Archivar</button>
+                    </div>
+                </div>`;
         });
     }
 
-    function verDetalle(r) {
-        document.getElementById('modalTitulo').innerText = "Reporte: " + r.nombre;
-        let html = `<table border="1" style="width:100%; border-collapse:collapse;"><thead><tr><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr></thead><tbody>`;
-        r.actividades.forEach(a => html += `<tr><td>${a.fecha}</td><td>${a.hrs}</td><td>${a.act}</td></tr>`);
-        html += `</tbody></table><h4>Total: ${r.total} hrs</h4>`;
-        document.getElementById('modalCuerpo').innerHTML = html;
-        document.getElementById('modalDetalle').style.display = "block";
+    function filtrarPorNombre() {
+        const busqueda = document.getElementById('buscador').value.toLowerCase();
+        const filtrados = reportesCargados.filter(r => r.nombre.toLowerCase().includes(busqueda));
+        renderizarLista(filtrados);
     }
 
-    function cerrarModal() { document.getElementById('modalDetalle').style.display = "none"; }
+    async function archivarReporte(id) {
+        if(!confirm("¿Deseas archivar este reporte? Ya no aparecerá en tu lista principal.")) return;
+        await db.collection("reportes_finales").doc(id).update({ archivado: true });
+        // Recargar el área actual
+        const user = auth.currentUser.email;
+        const area = user === JEFE_EMAIL ? document.getElementById('filtroMaestro').value : supervisoresAreas[user];
+        cargarDatos(area);
+    }
 
     function copiarReporteHTML(r) {
-        // Creamos la estructura HTML de la tabla para que Outlook la reconozca
-        let htmlTabla = `
-            <div style="font-family: Arial, sans-serif;">
-                <p><strong>REPORTE DE HORAS - ÁREA: ${r.area}</strong></p>
-                <p>Nombre: ${r.nombre} | No. Emp: ${r.id}</p>
-                <table border="1" style="border-collapse: collapse; width: 100%; font-size: 14px;">
-                    <thead>
-                        <tr style="background-color: #003366; color: white;">
-                            <th style="padding: 8px;">Fecha</th>
-                            <th style="padding: 8px;">Horas</th>
-                            <th style="padding: 8px;">Actividad</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-        
-        r.actividades.forEach(a => {
-            htmlTabla += `
-                <tr>
-                    <td style="padding: 8px;">${a.fecha}</td>
-                    <td style="padding: 8px; text-align: center;">${a.hrs}</td>
-                    <td style="padding: 8px;">${a.act}</td>
-                </tr>`;
-        });
-
-        htmlTabla += `
-                    </tbody>
-                    <tfoot>
-                        <tr style="background-color: #eee; font-weight: bold;">
-                            <td colspan="2" style="padding: 8px; text-align: right;">TOTAL:</td>
-                            <td style="padding: 8px;">${r.total} hrs</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>`;
-
-        // Función especial para copiar HTML al portapapeles
-        const blob = new Blob([htmlTabla], { type: 'text/html' });
-        const plainText = new Blob([`Reporte de ${r.nombre}: ${r.total} hrs`], { type: 'text/plain' });
-        const data = [new ClipboardItem({ 'text/html': blob, 'text/plain': plainText })];
-
-        navigator.clipboard.write(data).then(() => {
-            alert("✅ Tabla copiada con formato. Ya puedes pegarla en Outlook.");
-        });
+        let h = `<div style="font-family:Arial;"><p><strong>REPORTE ${r.area}</strong></p><p>${r.nombre} | ${r.id}</p><table border="1" style="border-collapse:collapse; width:100%;"><thead><tr style="background:#003366;color:white;"><th>Fecha</th><th>Horas</th><th>Actividad</th></tr></thead><tbody>`;
+        r.actividades.forEach(a => h += `<tr><td>${a.fecha}</td><td style="text-align:center;">${a.hrs}</td><td>${a.act}</td></tr>`);
+        h += `</tbody><tfoot><tr style="background:#eee;"><td>TOTAL:</td><td></td><td>${r.total} hrs</td></tr></tfoot></table></div>`;
+        const blob = new Blob([h], { type: 'text/html' });
+        const data = [new ClipboardItem({ 'text/html': blob, 'text/plain': new Blob([r.nombre], {type:'text/plain'}) })];
+        navigator.clipboard.write(data).then(() => alert("✅ Copiado."));
     }
 </script>
 </body>
