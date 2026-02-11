@@ -245,18 +245,20 @@
     function logout() { auth.signOut().then(() => location.reload()); }
 
     function copiarReporteHTML(r) {
-        const thStyle = 'padding:8px; background-color:#003366; color:#ffffff !important; font-weight:bold; text-align:center; border:1px solid #002244;';
-        const tdStyle = 'padding:8px; border:1px solid #ddd; min-width:80px;';
+        // Estilos ultra-compatibles para Outlook
+        const thStyle = 'padding:8px; background-color:#003366; background:#003366; color:#ffffff; font-weight:bold; text-align:center; border:1px solid #002244;';
+        const tdStyle = 'padding:8px; border:1px solid #ddd; min-width:80px; color:#000000;';
+        const fontStyle = 'color:#ffffff !important; font-family:Arial, sans-serif;'; // Forzamos color blanco aquí
 
         let h = `<div style="font-family:Arial, sans-serif;">
                     <p><strong>REPORTE DE HORAS - ÁREA: ${r.area}</strong></p>
                     <p>Empleado: ${r.nombre} | ID: ${r.id}</p>
                     <table border="1" style="border-collapse:collapse; width:auto; min-width:400px; border:1px solid #ddd;">
                         <thead>
-                            <tr>
-                                <th style="${thStyle}">Fecha</th>
-                                <th style="${thStyle}">Hrs</th>
-                                <th style="${thStyle}">Actividad realizada</th>
+                            <tr style="background-color:#003366;">
+                                <th style="${thStyle}"><span style="${fontStyle}">Fecha</span></th>
+                                <th style="${thStyle}"><span style="${fontStyle}">Hrs</span></th>
+                                <th style="${thStyle}"><span style="${fontStyle}">Actividad realizada</span></th>
                             </tr>
                         </thead>
                         <tbody>`;
@@ -282,7 +284,12 @@
         </div>`;
 
         const blob = new Blob([h], { type: 'text/html' });
-        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob, 'text/plain': new Blob([r.nombre], {type:'text/plain'}) })]).then(() => alert("✅ Copiado (Formato ajustado)."));
+        navigator.clipboard.write([
+            new ClipboardItem({ 
+                'text/html': blob, 
+                'text/plain': new Blob([`Reporte de ${r.nombre}`], {type:'text/plain'}) 
+            })
+        ]).then(() => alert("✅ Copiado. Listo para pegar en correo."));
     }
 
     function cambiarVistaJefe() { cargarDatos(document.getElementById('filtroMaestro').value); }
