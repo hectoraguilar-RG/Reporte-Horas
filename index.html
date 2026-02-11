@@ -10,7 +10,7 @@
     <style>
         :root { --cap-blue: #003366; --cap-gold: #c5a059; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7f9; margin: 0; padding: 10px; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 950px; margin: auto; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 950px; margin: auto; position: relative; }
         .header-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #ddd; }
         .header-item label { display: block; font-weight: bold; color: var(--cap-blue); font-size: 0.85rem; margin-bottom: 5px; }
         input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
@@ -27,6 +27,8 @@
         .search-bar { width: 100%; padding: 10px; margin-bottom: 15px; border: 2px solid var(--cap-gold); border-radius: 8px; font-size: 1rem; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
         .modal-content { background: white; margin: 5% auto; padding: 20px; width: 90%; max-width: 800px; border-radius: 12px; max-height: 80vh; overflow-y: auto; }
+        .footer-link { text-align: center; margin-top: 20px; }
+        .footer-link a { color: #888; font-size: 0.8rem; text-decoration: none; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -67,6 +69,10 @@
     <div style="text-align:right; font-size: 1.2rem; padding: 15px; font-weight: bold; color: var(--cap-blue);">Total: <span id="totalHoras">0</span> hrs</div>
     <button class="btn" style="background:#28a745; width:auto; padding:10px 20px;" onclick="agregarFila()">+ Añadir día</button>
     <button class="btn btn-send" onclick="enviarReporte()">ENVIAR REPORTE</button>
+    
+    <div class="footer-link">
+        <a onclick="toggleView('login-view')">⚙️ Acceso Supervisores</a>
+    </div>
 </div>
 
 <div id="login-view" class="card hidden">
@@ -147,9 +153,7 @@
         const nombre = document.getElementById('nombreEmp').value;
         const idEmp = document.getElementById('idEmp').value;
         const correo = document.getElementById('correoEmp').value;
-
-        if(!area || !nombre || !idEmp || !correo) return alert("❌ Completa todos los campos del encabezado.");
-
+        if(!area || !nombre || !idEmp || !correo) return alert("❌ Completa todos los campos.");
         let filas = [];
         document.querySelectorAll('#cuerpoTabla tr').forEach(f => {
             const fecha = f.querySelector('.row-fecha').value;
@@ -157,9 +161,7 @@
             const act = f.querySelector('.row-act').value;
             if(fecha && hrs && act) filas.push({fecha, hrs, act});
         });
-
-        if(filas.length === 0) return alert("❌ Agrega al menos una actividad completa.");
-
+        if(filas.length === 0) return alert("❌ Agrega actividades.");
         try {
             await db.collection("reportes_finales").add({
                 nombre, area, id: idEmp, correo,
@@ -167,13 +169,13 @@
                 actividades: filas, fechaEnvio: new Date().toISOString(), archivado: false
             });
             alert("✅ Enviado."); location.reload();
-        } catch(e) { alert("Error de conexión."); }
+        } catch(e) { alert("Error."); }
     }
 
     async function loginSupervisor() {
         const email = document.getElementById('loginEmail').value;
         const pass = document.getElementById('loginPass').value;
-        try { await auth.signInWithEmailAndPassword(email, pass); } catch(e) { alert("Error de acceso."); }
+        try { await auth.signInWithEmailAndPassword(email, pass); } catch(e) { alert("Acceso denegado."); }
     }
 
     auth.onAuthStateChanged(user => {
@@ -187,8 +189,6 @@
             }
         }
     });
-
-    function cambiarVistaJefe() { cargarDatos(document.getElementById('filtroMaestro').value); }
 
     async function cargarDatos(area) {
         if(!area) return;
@@ -239,26 +239,24 @@
     async function archivarReporte(id) {
         if(!confirm("¿Archivar?")) return;
         await db.collection("reportes_finales").doc(id).update({ archivado: true });
-        const area = auth.currentUser.email === JEFE_EMAIL ? document.getElementById('filtroMaestro').value : supervisoresAreas[auth.currentUser.email];
-        cargarDatos(area);
+        cargarDatos(auth.currentUser.email === JEFE_EMAIL ? document.getElementById('filtroMaestro').value : supervisoresAreas[auth.currentUser.email]);
     }
 
     function logout() { auth.signOut().then(() => location.reload()); }
-    
+
     function copiarReporteHTML(r) {
-        // Estilo de celda de encabezado para máxima compatibilidad con Outlook
-        const thStyle = 'padding:8px; background-color:#003366; color:#ffffff; font-weight:bold; text-align:center; border:1px solid #002244;';
-        const tdStyle = 'padding:8px; border:1px solid #ddd;';
+        const thStyle = 'padding:8px; background-color:#003366; color:#ffffff !important; font-weight:bold; text-align:center; border:1px solid #002244;';
+        const tdStyle = 'padding:8px; border:1px solid #ddd; min-width:80px;';
 
         let h = `<div style="font-family:Arial, sans-serif;">
                     <p><strong>REPORTE DE HORAS - ÁREA: ${r.area}</strong></p>
                     <p>Empleado: ${r.nombre} | ID: ${r.id}</p>
-                    <table border="1" style="border-collapse:collapse; width:100%; border:1px solid #ddd;">
+                    <table border="1" style="border-collapse:collapse; width:auto; min-width:400px; border:1px solid #ddd;">
                         <thead>
                             <tr>
                                 <th style="${thStyle}">Fecha</th>
                                 <th style="${thStyle}">Hrs</th>
-                                <th style="${thStyle}">Actividad</th>
+                                <th style="${thStyle}">Actividad realizada</th>
                             </tr>
                         </thead>
                         <tbody>`;
@@ -284,20 +282,10 @@
         </div>`;
 
         const blob = new Blob([h], { type: 'text/html' });
-        const plainText = new Blob([`Reporte de ${r.nombre}`], { type: 'text/plain' });
-        
-        const data = [new ClipboardItem({ 
-            'text/html': blob, 
-            'text/plain': plainText 
-        })];
-
-        navigator.clipboard.write(data).then(() => {
-            alert("✅ Tabla copiada. El encabezado ahora debe aparecer en blanco en Outlook.");
-        }).catch(err => {
-            alert("Error al copiar. Intenta de nuevo.");
-        });
+        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob, 'text/plain': new Blob([r.nombre], {type:'text/plain'}) })]).then(() => alert("✅ Copiado (Formato ajustado)."));
     }
-   
+
+    function cambiarVistaJefe() { cargarDatos(document.getElementById('filtroMaestro').value); }
 </script>
 </body>
 </html>
