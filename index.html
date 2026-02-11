@@ -244,18 +244,60 @@
     }
 
     function logout() { auth.signOut().then(() => location.reload()); }
-
+    
     function copiarReporteHTML(r) {
-        let h = `<div style="font-family:Arial;"><p><strong>REPORTE DE HORAS - ÁREA: ${r.area}</strong></p><p>Empleado: ${r.nombre} | ID: ${r.id}</p><table border="1" style="border-collapse:collapse; width:100%;"><thead style="background:#003366;color:white;"><tr><th style="padding:8px;color:white !important;">Fecha</th><th style="padding:8px;color:white !important;">Hrs</th><th style="padding:8px;color:white !important;">Actividad</th></tr></thead><tbody>`;
+        // Estilo de celda de encabezado para máxima compatibilidad con Outlook
+        const thStyle = 'padding:8px; background-color:#003366; color:#ffffff; font-weight:bold; text-align:center; border:1px solid #002244;';
+        const tdStyle = 'padding:8px; border:1px solid #ddd;';
+
+        let h = `<div style="font-family:Arial, sans-serif;">
+                    <p><strong>REPORTE DE HORAS - ÁREA: ${r.area}</strong></p>
+                    <p>Empleado: ${r.nombre} | ID: ${r.id}</p>
+                    <table border="1" style="border-collapse:collapse; width:100%; border:1px solid #ddd;">
+                        <thead>
+                            <tr>
+                                <th style="${thStyle}">Fecha</th>
+                                <th style="${thStyle}">Hrs</th>
+                                <th style="${thStyle}">Actividad</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+        
         r.actividades.forEach(a => {
             const fParts = a.fecha.split('-');
             const fFormat = fParts.length > 1 ? `${fParts[2]}-${fParts[1]}-${fParts[0]}` : a.fecha;
-            h += `<tr><td style="padding:8px;">${fFormat}</td><td style="padding:8px;text-align:center;">${a.hrs}</td><td style="padding:8px;">${a.act}</td></tr>`;
+            h += `<tr>
+                    <td style="${tdStyle}">${fFormat}</td>
+                    <td style="${tdStyle} text-align:center;">${a.hrs}</td>
+                    <td style="${tdStyle}">${a.act}</td>
+                  </tr>`;
         });
-        h += `</tbody><tfoot style="background:#eee;"><tr><td colspan="2" style="padding:8px;text-align:right;"><strong>TOTAL:</strong></td><td style="padding:8px;"><strong>${r.total} hrs</strong></td></tr></tfoot></table></div>`;
+
+        h += `</tbody>
+                <tfoot style="background-color:#eee;">
+                    <tr>
+                        <td colspan="2" style="${tdStyle} text-align:right;"><strong>TOTAL:</strong></td>
+                        <td style="${tdStyle}"><strong>${r.total} hrs</strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>`;
+
         const blob = new Blob([h], { type: 'text/html' });
-        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob, 'text/plain': new Blob([r.nombre], {type:'text/plain'}) })]).then(() => alert("✅ Tabla copiada con formato Día-Mes-Año."));
+        const plainText = new Blob([`Reporte de ${r.nombre}`], { type: 'text/plain' });
+        
+        const data = [new ClipboardItem({ 
+            'text/html': blob, 
+            'text/plain': plainText 
+        })];
+
+        navigator.clipboard.write(data).then(() => {
+            alert("✅ Tabla copiada. El encabezado ahora debe aparecer en blanco en Outlook.");
+        }).catch(err => {
+            alert("Error al copiar. Intenta de nuevo.");
+        });
     }
+   
 </script>
 </body>
 </html>
