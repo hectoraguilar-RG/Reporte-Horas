@@ -15,16 +15,18 @@
         .header-item label { display: block; font-weight: bold; color: var(--cap-blue); font-size: 0.85rem; margin-bottom: 5px; }
         input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
-        th { background: var(--cap-blue); color: white; padding: 12px; font-size: 0.9rem; border: 1px solid #002244; }
+        th { background: var(--cap-blue); color: white !important; padding: 12px; font-size: 0.9rem; border: 1px solid #002244; }
         td { border: 1px solid #ddd; padding: 8px; }
         .btn { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; margin: 5px 0; transition: 0.3s; }
         .btn-send { background: var(--cap-blue); width: 100%; font-size: 1.1rem; }
-        .btn-copy { background: var(--cap-gold); padding: 5px 15px; font-size: 0.8rem; }
-        .btn-archive { background: #dc3545; padding: 5px 15px; font-size: 0.8rem; margin-left:5px; }
+        .btn-view { background: #17a2b8; padding: 5px 10px; font-size: 0.75rem; }
+        .btn-copy { background: var(--cap-gold); padding: 5px 10px; font-size: 0.75rem; }
+        .btn-archive { background: #dc3545; padding: 5px 10px; font-size: 0.75rem; }
         .hidden { display: none; }
         .admin-entry { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
         .search-bar { width: 100%; padding: 10px; margin-bottom: 15px; border: 2px solid var(--cap-gold); border-radius: 8px; font-size: 1rem; }
-        .error-msg { color: red; font-size: 0.75rem; font-weight: bold; margin-top: 5px; display: none; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
+        .modal-content { background: white; margin: 5% auto; padding: 20px; width: 90%; max-width: 800px; border-radius: 12px; max-height: 80vh; overflow-y: auto; }
     </style>
 </head>
 <body>
@@ -64,8 +66,7 @@
     </div>
     <div style="text-align:right; font-size: 1.2rem; padding: 15px; font-weight: bold; color: var(--cap-blue);">Total: <span id="totalHoras">0</span> hrs</div>
     <button class="btn" style="background:#28a745; width:auto; padding:10px 20px;" onclick="agregarFila()">+ Añadir día</button>
-    <button class="btn btn-send" onclick="enviarReporte()">ENVIAR REPORTE AL SUPERVISOR</button>
-    <p style="text-align:center;"><a href="#" onclick="toggleView('login-view')" style="color:#888; font-size:0.8rem; text-decoration:none;">Acceso Supervisores</a></p>
+    <button class="btn btn-send" onclick="enviarReporte()">ENVIAR REPORTE</button>
 </div>
 
 <div id="login-view" class="card hidden">
@@ -82,9 +83,17 @@
         <label><b>Modo Jefe - Filtrar área:</b></label>
         <select id="filtroMaestro" onchange="cambiarVistaJefe()"><option value="Primaria">Primaria</option><option value="Secundaria">Secundaria</option><option value="Preparatoria">Preparatoria</option><option value="Oficios">Oficios</option><option value="Electricidad">Electricidad</option><option value="Jardineria">Jardineria</option><option value="Carpinteria">Carpinteria</option></select>
     </div>
-    <input type="text" id="buscador" class="search-bar" placeholder="🔍 Buscar empleado por nombre..." onkeyup="filtrarPorNombre()">
-    <div id="lista-reportes">Buscando reportes en la base de datos...</div>
+    <input type="text" id="buscador" class="search-bar" placeholder="🔍 Buscar empleado..." onkeyup="filtrarPorNombre()">
+    <div id="lista-reportes">Cargando...</div>
     <button class="btn" style="background:#dc3545; width:100%; margin-top:20px;" onclick="logout()">Cerrar Sesión</button>
+</div>
+
+<div id="modalDetalle" class="modal">
+    <div class="modal-content">
+        <h3 id="modalTitulo" style="color:var(--cap-blue);"></h3>
+        <div id="modalCuerpo"></div>
+        <button class="btn" style="background:#6c757d; width:100%; margin-top:20px;" onclick="cerrarModal()">Cerrar Vista</button>
+    </div>
 </div>
 
 <script>
@@ -105,7 +114,7 @@
     const JEFE_EMAIL = "jesus.munoz@cap.edu.mx"; 
     const supervisoresAreas = {
         "jesus.cruz@cap.edu.mx": "Oficios",
-        "edson.miguel@cap.edu.mx": "Primaria",
+        "edson.miguel@cap.edu.mx": "Primaria",
         "hector.aguilar@cap.edu.mx": "Secundaria",
         "israel.vazquez@cap.edu.mx": "Preparatoria",
         "omar.ruiz@cap.edu.mx": "Electricidad",
@@ -139,24 +148,17 @@
         const idEmp = document.getElementById('idEmp').value;
         const correo = document.getElementById('correoEmp').value;
 
-        // VALIDACIÓN DE CAMPOS VACÍOS
-        if(!area || !nombre || !idEmp || !correo) {
-            return alert("❌ Error: Todos los campos del encabezado (Nombre, No. Empleado, Área y Correo) son obligatorios.");
-        }
+        if(!area || !nombre || !idEmp || !correo) return alert("❌ Completa todos los campos del encabezado.");
 
         let filas = [];
         document.querySelectorAll('#cuerpoTabla tr').forEach(f => {
             const fecha = f.querySelector('.row-fecha').value;
             const hrs = f.querySelector('.row-horas').value;
             const act = f.querySelector('.row-act').value;
-            if(fecha && hrs && act) {
-                filas.push({fecha, hrs, act});
-            }
+            if(fecha && hrs && act) filas.push({fecha, hrs, act});
         });
 
-        if(filas.length === 0) {
-            return alert("❌ Error: Debes llenar al menos una fila con Fecha, Horas y Actividad.");
-        }
+        if(filas.length === 0) return alert("❌ Agrega al menos una actividad completa.");
 
         try {
             await db.collection("reportes_finales").add({
@@ -164,21 +166,16 @@
                 total: document.getElementById('totalHoras').innerText,
                 actividades: filas, fechaEnvio: new Date().toISOString(), archivado: false
             });
-            alert("✅ Reporte enviado con éxito al supervisor."); 
-            location.reload();
-        } catch(e) { alert("Error al conectar con la base de datos."); }
+            alert("✅ Enviado."); location.reload();
+        } catch(e) { alert("Error de conexión."); }
     }
 
     async function loginSupervisor() {
         const email = document.getElementById('loginEmail').value;
         const pass = document.getElementById('loginPass').value;
-        try {
-            await auth.signInWithEmailAndPassword(email, pass);
-            // El observador onAuthStateChanged se encargará de cargar los datos
-        } catch(e) { alert("Correo o contraseña incorrectos."); }
+        try { await auth.signInWithEmailAndPassword(email, pass); } catch(e) { alert("Error de acceso."); }
     }
 
-    // OBSERVADOR DE SESIÓN (Evita que se cierre al refrescar si el navegador lo permite)
     auth.onAuthStateChanged(user => {
         if (user) {
             toggleView('admin-view');
@@ -194,44 +191,25 @@
     function cambiarVistaJefe() { cargarDatos(document.getElementById('filtroMaestro').value); }
 
     async function cargarDatos(area) {
-        if(!area) {
-            document.getElementById('lista-reportes').innerHTML = "No tienes un área asignada.";
-            return;
-        }
-        document.getElementById('lista-reportes').innerHTML = "Buscando reportes...";
-        
-        try {
-            const snap = await db.collection("reportes_finales")
-                                .where("area", "==", area)
-                                .where("archivado", "==", false)
-                                .get();
-            
-            reportesCargados = [];
-            snap.forEach(doc => reportesCargados.push({idDoc: doc.id, ...doc.data()}));
-            
-            // Ordenamos manualmente por fecha para evitar problemas de índices en Firebase
-            reportesCargados.sort((a, b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
-            
-            renderizarLista(reportesCargados);
-        } catch(e) {
-            console.error(e);
-            document.getElementById('lista-reportes').innerHTML = "Error al cargar. Avisa al administrador.";
-        }
+        if(!area) return;
+        const snap = await db.collection("reportes_finales").where("area", "==", area).where("archivado", "==", false).get();
+        reportesCargados = [];
+        snap.forEach(doc => reportesCargados.push({idDoc: doc.id, ...doc.data()}));
+        reportesCargados.sort((a, b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
+        renderizarLista(reportesCargados);
     }
 
     function renderizarLista(lista) {
         const contenedor = document.getElementById('lista-reportes');
-        contenedor.innerHTML = lista.length === 0 ? "No hay reportes pendientes en esta área." : "";
+        contenedor.innerHTML = lista.length === 0 ? "Sin reportes pendientes." : "";
         lista.forEach(r => {
             const dataStr = JSON.stringify(r).replace(/"/g, '&quot;');
             contenedor.innerHTML += `
                 <div class="admin-entry">
+                    <div><strong>${r.nombre}</strong><br><small>${r.total} hrs</small></div>
                     <div>
-                        <strong>${r.nombre}</strong><br>
-                        <small>Total: ${r.total} hrs</small>
-                    </div>
-                    <div>
-                        <button class="btn btn-copy" onclick="copiarReporteHTML(${dataStr})">Copiar Tabla</button>
+                        <button class="btn btn-view" onclick="verDetalle(${dataStr})">Ver</button>
+                        <button class="btn btn-copy" onclick="copiarReporteHTML(${dataStr})">Copiar</button>
                         <button class="btn btn-archive" onclick="archivarReporte('${r.idDoc}')">Archivar</button>
                     </div>
                 </div>`;
@@ -240,34 +218,43 @@
 
     function filtrarPorNombre() {
         const busqueda = document.getElementById('buscador').value.toLowerCase();
-        const filtrados = reportesCargados.filter(r => r.nombre.toLowerCase().includes(busqueda));
-        renderizarLista(filtrados);
+        renderizarLista(reportesCargados.filter(r => r.nombre.toLowerCase().includes(busqueda)));
     }
+
+    function verDetalle(r) {
+        document.getElementById('modalTitulo').innerText = "Detalle: " + r.nombre;
+        let html = `<p><b>ID:</b> ${r.id} | <b>Área:</b> ${r.area}</p><table border="1" style="width:100%; border-collapse:collapse;"><thead><tr style="background:#003366;color:white;"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr></thead><tbody>`;
+        r.actividades.forEach(a => {
+            const fParts = a.fecha.split('-');
+            const fFormat = fParts.length > 1 ? `${fParts[2]}-${fParts[1]}-${fParts[0]}` : a.fecha;
+            html += `<tr><td>${fFormat}</td><td style="text-align:center;">${a.hrs}</td><td>${a.act}</td></tr>`;
+        });
+        html += `</tbody></table><h4 style="text-align:right;">Total: ${r.total} hrs</h4>`;
+        document.getElementById('modalCuerpo').innerHTML = html;
+        document.getElementById('modalDetalle').style.display = "block";
+    }
+
+    function cerrarModal() { document.getElementById('modalDetalle').style.display = "none"; }
 
     async function archivarReporte(id) {
-        if(!confirm("¿Archivar reporte? Ya no aparecerá en la lista de pendientes.")) return;
-        try {
-            await db.collection("reportes_finales").doc(id).update({ archivado: true });
-            const userEmail = auth.currentUser.email;
-            const area = userEmail === JEFE_EMAIL ? document.getElementById('filtroMaestro').value : supervisoresAreas[userEmail];
-            cargarDatos(area);
-        } catch(e) { alert("Error al archivar."); }
+        if(!confirm("¿Archivar?")) return;
+        await db.collection("reportes_finales").doc(id).update({ archivado: true });
+        const area = auth.currentUser.email === JEFE_EMAIL ? document.getElementById('filtroMaestro').value : supervisoresAreas[auth.currentUser.email];
+        cargarDatos(area);
     }
 
-    function logout() {
-        auth.signOut().then(() => location.reload());
-    }
+    function logout() { auth.signOut().then(() => location.reload()); }
 
     function copiarReporteHTML(r) {
-        let h = `<div style="font-family:Arial;"><p><strong>REPORTE DE HORAS - ÁREA: ${r.area}</strong></p><p>Empleado: ${r.nombre} | ID: ${r.id}</p><table border="1" style="border-collapse:collapse; width:100%;"><thead style="background:#003366;color:white;"><tr><th style="padding:8px;">Fecha</th><th style="padding:8px;">Hrs</th><th style="padding:8px;">Actividad</th></tr></thead><tbody>`;
-        r.actividades.forEach(a => h += `<tr><td style="padding:8px;">${a.fecha}</td><td style="padding:8px;text-align:center;">${a.hrs}</td><td style="padding:8px;">${a.act}</td></tr>`);
+        let h = `<div style="font-family:Arial;"><p><strong>REPORTE DE HORAS - ÁREA: ${r.area}</strong></p><p>Empleado: ${r.nombre} | ID: ${r.id}</p><table border="1" style="border-collapse:collapse; width:100%;"><thead style="background:#003366;color:white;"><tr><th style="padding:8px;color:white !important;">Fecha</th><th style="padding:8px;color:white !important;">Hrs</th><th style="padding:8px;color:white !important;">Actividad</th></tr></thead><tbody>`;
+        r.actividades.forEach(a => {
+            const fParts = a.fecha.split('-');
+            const fFormat = fParts.length > 1 ? `${fParts[2]}-${fParts[1]}-${fParts[0]}` : a.fecha;
+            h += `<tr><td style="padding:8px;">${fFormat}</td><td style="padding:8px;text-align:center;">${a.hrs}</td><td style="padding:8px;">${a.act}</td></tr>`;
+        });
         h += `</tbody><tfoot style="background:#eee;"><tr><td colspan="2" style="padding:8px;text-align:right;"><strong>TOTAL:</strong></td><td style="padding:8px;"><strong>${r.total} hrs</strong></td></tr></tfoot></table></div>`;
-        
         const blob = new Blob([h], { type: 'text/html' });
-        const plainText = new Blob([`Reporte de ${r.nombre}`], { type: 'text/plain' });
-        const data = [new ClipboardItem({ 'text/html': blob, 'text/plain': plainText })];
-        
-        navigator.clipboard.write(data).then(() => alert("✅ Tabla copiada. Pégala en Outlook."));
+        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob, 'text/plain': new Blob([r.nombre], {type:'text/plain'}) })]).then(() => alert("✅ Tabla copiada con formato Día-Mes-Año."));
     }
 </script>
 </body>
