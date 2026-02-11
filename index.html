@@ -3,98 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Control de Horas - Mantenimiento CAP</title>
+    <title>Control de Horas - CAP</title>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
     <style>
-        :root { --cap-blue: #003366; --cap-gold: #c5a059; }
-        body { font-family: Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 10px; }
-        .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 950px; margin: auto; }
-        .header-table, .main-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-        .header-table td, .main-table th, .main-table td { border: 1px solid #000; padding: 8px; }
-        .bg-gray { background: #f8f9fa; font-weight: bold; }
-        input, select { width: 100%; border: none; outline: none; background: transparent; font-size: 1rem; }
-        .btn { padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; color: white; margin: 5px 0; width: 100%; }
-        .btn-add { background: #28a745; width: auto; }
-        .btn-send { background: var(--cap-blue); font-size: 1.1rem; }
+        :root { --cap-blue: #003366; --cap-gold: #c5a059; --text-gray: #444; }
+        body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #f4f7f9; margin: 0; padding: 10px; color: var(--text-gray); }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); max-width: 950px; margin: auto; }
+        h2 { text-align: center; color: var(--cap-blue); font-size: 1.4rem; margin-bottom: 20px; }
+        
+        /* Estilo de encabezado responsivo */
+        .header-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; border: 1px solid #ddd; padding: 10px; border-radius: 8px; background: #fafafa; }
+        .header-item { display: flex; flex-direction: column; }
+        .header-item label { font-size: 0.8rem; font-weight: bold; color: var(--cap-blue); margin-bottom: 4px; }
+        
+        /* Tabla adaptable */
+        .table-wrapper { overflow-x: auto; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #eee; padding: 10px; border: 1px solid #ccc; font-size: 0.9rem; }
+        td { border: 1px solid #ccc; padding: 5px; }
+        input, select { width: 100%; padding: 10px; border: 1px solid transparent; box-sizing: border-box; font-size: 1rem; border-radius: 4px; }
+        input:focus, select:focus { background: #fffdf4; border-color: var(--cap-gold); outline: none; }
+
+        /* Diseño especial para Celulares */
+        @media screen and (max-width: 600px) {
+            .header-grid { grid-template-columns: 1fr; }
+            table, thead, tbody, th, td, tr { display: block; }
+            thead tr { position: absolute; top: -9999px; left: -9999px; }
+            tr { border: 1px solid #ccc; margin-bottom: 15px; border-radius: 8px; padding: 10px; background: #fff; }
+            td { border: none; position: relative; padding-left: 40%; margin-bottom: 8px; min-height: 35px; }
+            td:before { position: absolute; left: 10px; width: 35%; font-weight: bold; color: var(--cap-blue); white-space: nowrap; font-size: 0.8rem; }
+            td:nth-of-type(1):before { content: "Fecha:"; }
+            td:nth-of-type(2):before { content: "Horas:"; }
+            td:nth-of-type(3):before { content: "Actividad:"; }
+            td input { border: 1px solid #eee; background: #f9f9f9; }
+            .total-row-cell { padding-left: 50% !important; font-size: 1.2rem; }
+            .total-row-cell:before { content: "TOTAL:"; }
+        }
+
+        .btn { padding: 14px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; margin: 8px 0; width: 100%; font-size: 1rem; }
+        .btn-add { background: #28a745; margin-bottom: 20px; }
+        .btn-send { background: var(--cap-blue); box-shadow: 0 4px 6px rgba(0,51,102,0.2); }
         .hidden { display: none; }
-        .admin-entry { border: 1px solid #ddd; padding: 10px; margin-bottom: 10px; border-left: 5px solid var(--cap-blue); }
+        .admin-entry { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-left: 6px solid var(--cap-blue); border-radius: 8px; }
     </style>
 </head>
 <body>
 
 <div class="card" id="user-view">
-    <h2 style="text-align:center; color: var(--cap-blue);">Reporte de Horas Adicionales</h2>
-    <table class="header-table">
-        <tr>
-            <td class="bg-gray">Nombre:</td>
-            <td><input type="text" id="nombreEmp" placeholder="Nombre completo"></td>
-            <td class="bg-gray">No. Empleado:</td>
-            <td><input type="text" id="idEmp" placeholder="P000"></td>
-        </tr>
-        <tr>
-            <td class="bg-gray">Área:</td>
-            <td>
-                <select id="areaEmp">
-                    <option value="">-- Seleccionar Área --</option>
-                    <option value="Primaria">Primaria</option>
-                    <option value="Secundaria">Secundaria</option>
-                    <option value="Preparatoria">Preparatoria</option>
-                    <option value="Oficios">Oficios</option>
-                    <option value="Electricidad">Electricidad</option>
-                    <option value="Jardineria">Jardineria</option>
-                    <option value="Carpinteria">Carpinteria</option>
-                </select>
-            </td>
-            <td class="bg-gray">Correo:</td>
-            <td><input type="email" id="correoEmp" placeholder="@cap.edu.mx"></td>
-        </tr>
-    </table>
+    <h2>Reporte de Horas CAP</h2>
+    
+    <div class="header-grid">
+        <div class="header-item"><label>Nombre:</label><input type="text" id="nombreEmp" placeholder="Ej. Juan Pérez"></div>
+        <div class="header-item"><label>No. Empleado:</label><input type="text" id="idEmp" placeholder="P000"></div>
+        <div class="header-item">
+            <label>Área:</label>
+            <select id="areaEmp">
+                <option value="">-- Elegir --</option>
+                <option value="Primaria">Primaria</option>
+                <option value="Secundaria">Secundaria</option>
+                <option value="Preparatoria">Preparatoria</option>
+                <option value="Oficios">Oficios</option>
+                <option value="Electricidad">Electricidad</option>
+                <option value="Jardineria">Jardineria</option>
+                <option value="Carpinteria">Carpinteria</option>
+            </select>
+        </div>
+        <div class="header-item"><label>Correo CAP:</label><input type="email" id="correoEmp" placeholder="usuario@cap.edu.mx"></div>
+    </div>
 
-    <table class="main-table">
-        <thead>
-            <tr class="bg-gray">
-                <th>Fecha</th>
-                <th>Hrs</th>
-                <th>Actividad realizada</th>
-            </tr>
-        </thead>
-        <tbody id="cuerpoTabla">
-            <tr>
-                <td><input type="date" class="row-fecha"></td>
-                <td><input type="number" class="row-horas" oninput="calcularTotal()" step="0.5"></td>
-                <td><input type="text" class="row-act"></td>
-            </tr>
-        </tbody>
-        <tfoot>
-            <tr class="bg-gray">
-                <td>TOTAL HORAS:</td>
-                <td id="totalHoras">0</td>
-                <td></td>
-            </tr>
-        </tfoot>
-    </table>
-    <button class="btn btn-add" onclick="agregarFila()">+ Añadir fila</button>
-    <button class="btn btn-send" onclick="enviarReporte()">ENVIAR REPORTE</button>
-    <p style="text-align:center;"><a href="#" onclick="toggleView('login-view')" style="color:#666; font-size:0.8rem;">Acceso Supervisores</a></p>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr></thead>
+            <tbody id="cuerpoTabla">
+                <tr>
+                    <td><input type="date" class="row-fecha"></td>
+                    <td><input type="number" class="row-horas" oninput="calcularTotal()" step="0.5" placeholder="0"></td>
+                    <td><input type="text" class="row-act" placeholder="¿Qué se hizo?"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div style="text-align: right; padding: 15px; font-weight: bold; font-size: 1.2rem; color: var(--cap-blue);">
+        Total: <span id="totalHoras">0</span> hrs
+    </div>
+
+    <button class="btn btn-add" onclick="agregarFila()">+ Añadir otro día</button>
+    <button class="btn btn-send" onclick="enviarReporte()">ENVIAR REPORTE QUINCENAL</button>
+    
+    <p style="text-align:center;"><a href="#" onclick="toggleView('login-view')" style="color:#888; text-decoration:none; font-size:0.8rem;">⚙️ Acceso Supervisores</a></p>
 </div>
 
 <div id="login-view" class="card hidden">
     <h3>Login Supervisor</h3>
-    <input type="email" id="loginEmail" placeholder="Correo @cap.edu.mx">
-    <input type="password" id="loginPass" placeholder="Contraseña">
-    <button class="btn btn-send" onclick="loginSupervisor()">Entrar al Panel</button>
+    <input type="email" id="loginEmail" placeholder="correo@cap.edu.mx" style="border:1px solid #ddd; margin-bottom:10px;">
+    <input type="password" id="loginPass" placeholder="Contraseña" style="border:1px solid #ddd; margin-bottom:10px;">
+    <button class="btn btn-send" onclick="loginSupervisor()">Entrar</button>
     <button class="btn" style="background:#6c757d" onclick="toggleView('user-view')">Volver</button>
 </div>
 
 <div id="admin-view" class="card hidden">
-    <h3 id="tituloAdmin">Panel de Supervisor</h3>
-    <div id="lista-reportes">Cargando reportes de tu área...</div>
-    <button class="btn" style="background:#dc3545" onclick="logout()">Cerrar Sesión</button>
+    <h3 id="tituloAdmin">Panel</h3>
+    <div id="wrapper-maestro" class="hidden" style="background:#fff3cd; padding:10px; border-radius:8px; margin-bottom:15px;">
+        <label>Ver área:</label>
+        <select id="filtroMaestro" onchange="cambiarVistaJefe()" style="border:1px solid #ccae44;">
+            <option value="Primaria">Primaria</option>
+            <option value="Secundaria">Secundaria</option>
+            <option value="Preparatoria">Preparatoria</option>
+            <option value="Oficios">Oficios</option>
+            <option value="Electricidad">Electricidad</option>
+            <option value="Jardineria">Jardineria</option>
+            <option value="Carpinteria">Carpinteria</option>
+        </select>
+    </div>
+    <div id="lista-reportes">Cargando datos...</div>
+    <button class="btn" style="background:#dc3545" onclick="location.reload()">Cerrar Sesión</button>
 </div>
 
 <script>
+    // --- MISMOS DATOS DE FIREBASE Y LOGICA ANTERIOR ---
     const firebaseConfig = {
         apiKey: "AIzaSyA8kdp8RqrgCPiCCpAQw3Zp06-zLtHsIdU",
         authDomain: "horasadicionales-seccap.firebaseapp.com",
@@ -109,12 +138,15 @@
     const db = firebase.firestore();
     const auth = firebase.auth();
 
-    // Mapeo de correos a áreas (Configura aquí tus supervisores)
+    const JEFE_EMAIL = "jesus.munozcap.edu.mx";
     const supervisoresAreas = {
-        "hector.aguilar@cap.edu.mx": "Oficios",
-        "supervisor.jardin@cap.edu.mx": "Jardineria",
-        "supervisor.prepa@cap.edu.mx": "Preparatoria"
-        // Agrega los demás correos y sus áreas correspondientes
+        "jesus.cruz@cap.edu.mx": "Oficios",
+        "edson.miguel@cap.edu.mx": "Primaria",
+        "hector.aguilar@cap.edu.mx": "Secundaria",
+        "israel.vazquez@cap.edu.mx": "Preparatoria",
+        "omar.ruiz@cap.edu.mx": "Electricidad",
+        "samuel.garcia@cap.edu.mx": "Jardineria",
+        "manuel.huerta@cap.edu.mx": "Carpinteria"
     };
 
     function agregarFila() {
@@ -129,19 +161,17 @@
         document.getElementById('totalHoras').innerText = t;
     }
 
-    function toggleView(viewId) {
+    function toggleView(v) {
         document.getElementById('user-view').classList.add('hidden');
         document.getElementById('login-view').classList.add('hidden');
         document.getElementById('admin-view').classList.add('hidden');
-        document.getElementById(viewId).classList.remove('hidden');
+        document.getElementById(v).classList.remove('hidden');
     }
 
     async function enviarReporte() {
         const area = document.getElementById('areaEmp').value;
         const nombre = document.getElementById('nombreEmp').value;
-        const correo = document.getElementById('correoEmp').value;
-        if(!area || !nombre || !correo.endsWith('@cap.edu.mx')) return alert("Datos incompletos o correo inválido");
-
+        if(!area || !nombre) return alert("Llena nombre y área");
         let filas = [];
         document.querySelectorAll('#cuerpoTabla tr').forEach(f => {
             const fecha = f.querySelector('.row-fecha').value;
@@ -149,17 +179,15 @@
             const act = f.querySelector('.row-act').value;
             if(fecha && hrs) filas.push({fecha, hrs, act});
         });
-
         try {
             await db.collection("reportes_finales").add({
                 nombre, area, id: document.getElementById('idEmp').value,
                 total: document.getElementById('totalHoras').innerText,
-                actividades: filas,
-                fechaEnvio: new Date().toISOString()
+                actividades: filas, fechaEnvio: new Date().toISOString()
             });
-            alert("✅ Reporte enviado al supervisor de " + area);
+            alert("✅ Enviado con éxito");
             location.reload();
-        } catch(e) { alert("Error al enviar"); }
+        } catch(e) { alert("Error"); }
     }
 
     async function loginSupervisor() {
@@ -167,44 +195,37 @@
         const pass = document.getElementById('loginPass').value;
         try {
             await auth.signInWithEmailAndPassword(email, pass);
-            const areaAsignada = supervisoresAreas[email];
-            if(!areaAsignada) {
-                alert("Usuario no autorizado para áreas.");
-                auth.signOut();
-                return;
+            if(email === JEFE_EMAIL) {
+                document.getElementById('wrapper-maestro').classList.remove('hidden');
+                document.getElementById('tituloAdmin').innerText = "Acceso General";
+                cambiarVistaJefe();
+            } else {
+                const area = supervisoresAreas[email];
+                document.getElementById('tituloAdmin').innerText = "Panel: " + area;
+                cargarDatos(area);
             }
-            document.getElementById('tituloAdmin').innerText = "Panel: " + areaAsignada;
             toggleView('admin-view');
-            cargarDatosFiltrados(areaAsignada);
-        } catch(e) { alert("Correo o contraseña incorrectos"); }
+        } catch(e) { alert("Error de acceso"); }
     }
 
-    async function cargarDatosFiltrados(area) {
+    function cambiarVistaJefe() { cargarDatos(document.getElementById('filtroMaestro').value); }
+
+    async function cargarDatos(area) {
         const snap = await db.collection("reportes_finales").where("area", "==", area).get();
         const contenedor = document.getElementById('lista-reportes');
         contenedor.innerHTML = "";
-        if(snap.empty) contenedor.innerHTML = "No hay reportes nuevos en tu área.";
         snap.forEach(doc => {
             const r = doc.data();
-            contenedor.innerHTML += `
-                <div class="admin-entry">
-                    <strong>${r.nombre}</strong> - ${r.total} hrs<br>
-                    <button class="btn btn-add" style="padding:5px; font-size:0.7rem;" onclick="copiarEmail('${r.nombre}', '${r.area}', ${JSON.stringify(r.actividades).replace(/"/g, '&quot;')}, '${r.total}')">Copiar para Outlook</button>
-                </div>`;
+            contenedor.innerHTML += `<div class="admin-entry"><strong>${r.nombre}</strong> - ${r.total} hrs<br><button class="btn" style="background:var(--cap-gold); width:auto; padding:5px 10px; margin-top:10px;" onclick="copiarEmail('${r.nombre}', '${r.area}', ${JSON.stringify(r.actividades).replace(/"/g, '&quot;')}, '${r.total}')">📋 Copiar para Outlook</button></div>`;
         });
     }
 
     function copiarEmail(n, ar, acts, t) {
-        let txt = `REPORTE DE HORAS - ÁREA: ${ar}\nNombre: ${n}\nFecha\tHoras\tActividad\n`;
-        acts.forEach(a => txt += `${a.fecha}\t${a.hrs}\t${a.act}\n`);
-        txt += `TOTAL\t${t}`;
+        let txt = `REPORTE: ${ar}\nNombre: ${n}\n`;
+        acts.forEach(a => txt += `${a.fecha} | ${a.hrs} hrs | ${a.act}\n`);
+        txt += `TOTAL: ${t}`;
         navigator.clipboard.writeText(txt);
-        alert("Copiado al portapapeles.");
-    }
-
-    function logout() {
-        auth.signOut();
-        location.reload();
+        alert("Copiado");
     }
 </script>
 </body>
