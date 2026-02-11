@@ -6,6 +6,7 @@
     <title>Control de Horas - Mantenimiento CAP</title>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
     <style>
         :root { --cap-blue: #003366; --cap-gold: #c5a059; }
         body { font-family: Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 10px; }
@@ -25,7 +26,6 @@
 
 <div class="card" id="user-view">
     <h2 style="text-align:center; color: var(--cap-blue);">Reporte de Horas Adicionales</h2>
-    
     <table class="header-table">
         <tr>
             <td class="bg-gray">Nombre:</td>
@@ -37,12 +37,14 @@
             <td class="bg-gray">Área:</td>
             <td>
                 <select id="areaEmp">
-                    <option value="">-- Seleccionar --</option>
-                    <option value="Oficios">Oficios</option>
-                    <option value="Jardinería">Jardinería</option>
+                    <option value="">-- Seleccionar Área --</option>
+                    <option value="Primaria">Primaria</option>
                     <option value="Secundaria">Secundaria</option>
-                    <option value="Limpieza">Limpieza</option>
-                    <option value="Mantenimiento General">Mantenimiento General</option>
+                    <option value="Preparatoria">Preparatoria</option>
+                    <option value="Oficios">Oficios</option>
+                    <option value="Electricidad">Electricidad</option>
+                    <option value="Jardineria">Jardineria</option>
+                    <option value="Carpinteria">Carpinteria</option>
                 </select>
             </td>
             <td class="bg-gray">Correo:</td>
@@ -73,26 +75,23 @@
             </tr>
         </tfoot>
     </table>
-
     <button class="btn btn-add" onclick="agregarFila()">+ Añadir fila</button>
-    <button class="btn btn-send" onclick="enviarReporte()">ENVIAR REPORTE AL SUPERVISOR</button>
-    
-    <p style="text-align:center;"><a href="#" onclick="mostrarLoginAdmin()" style="color:#666; font-size:0.8rem;">Acceso Supervisores</a></p>
+    <button class="btn btn-send" onclick="enviarReporte()">ENVIAR REPORTE</button>
+    <p style="text-align:center;"><a href="#" onclick="toggleView('login-view')" style="color:#666; font-size:0.8rem;">Acceso Supervisores</a></p>
+</div>
+
+<div id="login-view" class="card hidden">
+    <h3>Login Supervisor</h3>
+    <input type="email" id="loginEmail" placeholder="Correo @cap.edu.mx">
+    <input type="password" id="loginPass" placeholder="Contraseña">
+    <button class="btn btn-send" onclick="loginSupervisor()">Entrar al Panel</button>
+    <button class="btn" style="background:#6c757d" onclick="toggleView('user-view')">Volver</button>
 </div>
 
 <div id="admin-view" class="card hidden">
-    <h3>Panel de Supervisores - Mantenimiento</h3>
-    <div style="background:#eee; padding:10px; border-radius:5px; margin-bottom:15px;">
-        <label>Ver área:</label>
-        <select id="filtroArea" onchange="cargarDatosAdmin()">
-            <option value="TODOS">-- Todas las áreas --</option>
-            <option value="Oficios">Oficios</option>
-            <option value="Jardinería">Jardinería</option>
-            <option value="Secundaria">Secundaria</option>
-        </select>
-    </div>
-    <div id="lista-reportes">Cargando reportes...</div>
-    <button class="btn" style="background:#dc3545" onclick="location.reload()">Salir</button>
+    <h3 id="tituloAdmin">Panel de Supervisor</h3>
+    <div id="lista-reportes">Cargando reportes de tu área...</div>
+    <button class="btn" style="background:#dc3545" onclick="logout()">Cerrar Sesión</button>
 </div>
 
 <script>
@@ -108,6 +107,15 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    // Mapeo de correos a áreas (Configura aquí tus supervisores)
+    const supervisoresAreas = {
+        "hector.aguilar@cap.edu.mx": "Oficios",
+        "supervisor.jardin@cap.edu.mx": "Jardineria",
+        "supervisor.prepa@cap.edu.mx": "Preparatoria"
+        // Agrega los demás correos y sus áreas correspondientes
+    };
 
     function agregarFila() {
         const tr = document.createElement('tr');
@@ -121,10 +129,18 @@
         document.getElementById('totalHoras').innerText = t;
     }
 
+    function toggleView(viewId) {
+        document.getElementById('user-view').classList.add('hidden');
+        document.getElementById('login-view').classList.add('hidden');
+        document.getElementById('admin-view').classList.add('hidden');
+        document.getElementById(viewId).classList.remove('hidden');
+    }
+
     async function enviarReporte() {
         const area = document.getElementById('areaEmp').value;
         const nombre = document.getElementById('nombreEmp').value;
-        if(!area || !nombre) return alert("Por favor selecciona tu área y nombre");
+        const correo = document.getElementById('correoEmp').value;
+        if(!area || !nombre || !correo.endsWith('@cap.edu.mx')) return alert("Datos incompletos o correo inválido");
 
         let filas = [];
         document.querySelectorAll('#cuerpoTabla tr').forEach(f => {
@@ -135,40 +151,46 @@
         });
 
         try {
-            await db.collection("reportes_mantenimiento").add({
+            await db.collection("reportes_finales").add({
                 nombre, area, id: document.getElementById('idEmp').value,
                 total: document.getElementById('totalHoras').innerText,
                 actividades: filas,
                 fechaEnvio: new Date().toISOString()
             });
-            alert("✅ Enviado con éxito");
+            alert("✅ Reporte enviado al supervisor de " + area);
             location.reload();
-        } catch(e) { alert("Error"); }
+        } catch(e) { alert("Error al enviar"); }
     }
 
-    function mostrarLoginAdmin() {
-        if(prompt("Clave de Supervisor:") === "admin123") {
-            document.getElementById('user-view').classList.add('hidden');
-            document.getElementById('admin-view').classList.remove('hidden');
-            cargarDatosAdmin();
-        }
+    async function loginSupervisor() {
+        const email = document.getElementById('loginEmail').value;
+        const pass = document.getElementById('loginPass').value;
+        try {
+            await auth.signInWithEmailAndPassword(email, pass);
+            const areaAsignada = supervisoresAreas[email];
+            if(!areaAsignada) {
+                alert("Usuario no autorizado para áreas.");
+                auth.signOut();
+                return;
+            }
+            document.getElementById('tituloAdmin').innerText = "Panel: " + areaAsignada;
+            toggleView('admin-view');
+            cargarDatosFiltrados(areaAsignada);
+        } catch(e) { alert("Correo o contraseña incorrectos"); }
     }
 
-    async function cargarDatosAdmin() {
-        const filtro = document.getElementById('filtroArea').value;
-        const snap = await db.collection("reportes_mantenimiento").orderBy("fechaEnvio", "desc").get();
+    async function cargarDatosFiltrados(area) {
+        const snap = await db.collection("reportes_finales").where("area", "==", area).get();
         const contenedor = document.getElementById('lista-reportes');
         contenedor.innerHTML = "";
-
+        if(snap.empty) contenedor.innerHTML = "No hay reportes nuevos en tu área.";
         snap.forEach(doc => {
             const r = doc.data();
-            if(filtro === "TODOS" || r.area === filtro) {
-                contenedor.innerHTML += `
-                    <div class="admin-entry">
-                        <strong>${r.nombre}</strong> (${r.area}) - Total: ${r.total} hrs<br>
-                        <button class="btn btn-add" style="padding:5px; font-size:0.7rem;" onclick="copiarEmail('${r.nombre}', '${r.area}', ${JSON.stringify(r.actividades).replace(/"/g, '&quot;')}, '${r.total}')">Copiar para Outlook</button>
-                    </div>`;
-            }
+            contenedor.innerHTML += `
+                <div class="admin-entry">
+                    <strong>${r.nombre}</strong> - ${r.total} hrs<br>
+                    <button class="btn btn-add" style="padding:5px; font-size:0.7rem;" onclick="copiarEmail('${r.nombre}', '${r.area}', ${JSON.stringify(r.actividades).replace(/"/g, '&quot;')}, '${r.total}')">Copiar para Outlook</button>
+                </div>`;
         });
     }
 
@@ -177,7 +199,12 @@
         acts.forEach(a => txt += `${a.fecha}\t${a.hrs}\t${a.act}\n`);
         txt += `TOTAL\t${t}`;
         navigator.clipboard.writeText(txt);
-        alert("Copiado. Filtra por tu área y pega en el correo.");
+        alert("Copiado al portapapeles.");
+    }
+
+    function logout() {
+        auth.signOut();
+        location.reload();
     }
 </script>
 </body>
