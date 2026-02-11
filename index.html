@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de Horas Adicionales - CAP</title>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore-compat.js"></script>
+    <style>
+        :root { --cap-blue: #003366; --cap-gold: #c5a059; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 15px; }
+        .header { background: var(--cap-blue); color: white; padding: 20px; text-align: center; border-radius: 10px; margin-bottom: 20px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h2 { color: var(--cap-blue); font-size: 1.1rem; }
+        input, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
+        button { width: 100%; padding: 14px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; transition: 0.3s; }
+        .btn-main { background: var(--cap-blue); }
+        .btn-main:hover { background: #002244; }
+        .btn-admin { background: #607d8b; margin-top: 10px; }
+        .btn-copy { background: #2e7d32; }
+        .hidden { display: none; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #f8f9fa; }
+        .filter-section { background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Reporte de Horas Adicionales</h1>
+</div>
+
+<div id="view-user" class="card">
+    <h2>📝 Registrar horas</h2>
+    <input type="email" id="email" placeholder="Correo @cap.edu.mx">
+    <input type="text" id="numEmp" placeholder="Número de Empleado">
+    <input type="text" id="nombre" placeholder="Nombre Completo">
+    <input type="date" id="fecha">
+    <input type="number" id="horas" placeholder="Cantidad de horas (ej. 1.5)">
+    <textarea id="actividad" placeholder="Descripción de la actividad realizada"></textarea>
+    <button class="btn-main" onclick="enviarReporte()">Enviar Reporte</button>
+    <button class="btn-admin" onclick="mostrarLoginAdmin()">Acceso Supervisor</button>
+</div>
+
+<div id="view-admin" class="card hidden">
+    <h2>Panel de Control (Supervisor)</h2>
+    <div class="filter-section">
+        <label>Rango de Quincena:</label>
+        <input type="date" id="q-inicio"> al <input type="date" id="q-fin">
+        <button class="btn-copy" onclick="copiarQuincena()">📋 Copiar Tabla para Jefe</button>
+    </div>
+    <div style="overflow-x:auto;">
+        <table id="tabla-total">
+            <thead>
+                <tr><th>Empleado</th><th>ID</th><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr>
+            </thead>
+            <tbody id="lista-reportes"></tbody>
+        </table>
+    </div>
+    <button onclick="location.reload()" style="background:#cc0000; margin-top:20px;">Cerrar Sesión</button>
+</div>
+
+<script>
+    // CONFIGURACIÓN DE FIREBASE
+    const firebaseConfig = {
+        apiKey: "AIzaSyA8kdp8RqrgCPiCCpAQw3Zp06-zLtHsIdU",
+        authDomain: "horasadicionales-seccap.firebaseapp.com",
+        projectId: "horasadicionales-seccap",
+        storageBucket: "horasadicionales-seccap.firebasestorage.app",
+        messagingSenderId: "775098466986",
+        appId: "1:775098466986:web:5eda0508046d1dbf2086d3",
+        measurementId: "G-PNZE1CNG8D"
+    };
+
+    // Inicializar Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    async function enviarReporte() {
+        const email = document.getElementById('email').value;
+        const numEmp = document.getElementById('numEmp').value;
+        const nombre = document.getElementById('nombre').value;
+        const fecha = document.getElementById('fecha').value;
+        const horas = document.getElementById('horas').value;
+        const actividad = document.getElementById('actividad').value;
+
+        // Validación de dominio
+        if(!email.toLowerCase().endsWith('@cap.edu.mx')) {
+            alert("Error: Solo se permiten correos @cap.edu.mx");
+            return;
+        }
+
+        if(!nombre || !fecha || !horas || !numEmp) {
+            alert("Por favor llena todos los campos");
+            return;
+        }
+
+        try {
+            await db.collection("reportes").add({
+                email, numEmp, nombre, fecha, horas, actividad,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            alert("✅ Reporte enviado correctamente a la nube.");
+            // Limpiar campos de actividad y horas
+            document.getElementById('actividad').value = "";
+            document.getElementById('horas').value = "";
+        } catch (e) {
+            alert("Error al conectar con la base de datos: " + e.message);
+        }
+    }
+
+    function mostrarLoginAdmin() {
+        const pass = prompt("Contraseña de Supervisor:");
+        if(pass === "admin123") { // Puedes cambiar esta clave
+            document.getElementById('view-user').classList.add('hidden');
+            document.getElementById('view-admin').classList.remove('hidden');
+            cargarDatosAdmin();
+        } else {
+            alert("Acceso denegado");
+        }
+    }
+
+    async function cargarDatosAdmin() {
+        const snapshot = await db.collection("reportes").orderBy("fecha", "desc").get();
+        const tbody = document.getElementById('lista-reportes');
+        tbody.innerHTML = "";
+        snapshot.forEach(doc => {
+            const r = doc.data();
+            tbody.innerHTML += `<tr><td>${r.nombre}</td><td>${r.numEmp}</td><td>${r.fecha}</td><td>${r.horas}</td><td>${r.actividad}</td></tr>`;
+        });
+    }
+
+    function copiarQuincena() {
+        const inicio = document.getElementById('q-inicio').value;
+        const fin = document.getElementById('q-fin').value;
+        if(!inicio || !fin) return alert("Selecciona fecha de inicio y fin");
+
+        let tablaTexto = "REPORTE QUINCENAL\nNombre\tID\tFecha\tHoras\tActividad\n";
+        let encontrados = 0;
+        
+        const filas = document.querySelectorAll("#lista-reportes tr");
+        filas.forEach(fila => {
+            const c = fila.children;
+            const fFecha = c[2].innerText;
+            if(fFecha >= inicio && fFecha <= fin) {
+                tablaTexto += `${c[0].innerText}\t${c[1].innerText}\t${c[2].innerText}\t${c[3].innerText}\t${c[4].innerText}\n`;
+                encontrados++;
+            }
+        });
+
+        if(encontrados === 0) {
+            alert("No hay registros en esas fechas.");
+        } else {
+            navigator.clipboard.writeText(tablaTexto);
+            alert("Copiado con éxito: " + encontrados + " registros listos para el correo.");
+        }
+    }
+</script>
+</body>
+</html>
