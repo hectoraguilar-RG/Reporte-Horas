@@ -8,61 +8,78 @@
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore-compat.js"></script>
     <style>
         :root { --cap-blue: #003366; --cap-gold: #c5a059; }
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 15px; }
-        .header { background: var(--cap-blue); color: white; padding: 20px; text-align: center; border-radius: 10px; margin-bottom: 20px; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        h2 { color: var(--cap-blue); font-size: 1.1rem; }
-        input, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
-        button { width: 100%; padding: 14px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; transition: 0.3s; }
-        .btn-main { background: var(--cap-blue); }
-        .btn-main:hover { background: #002244; }
-        .btn-admin { background: #607d8b; margin-top: 10px; }
-        .btn-copy { background: #2e7d32; }
+        body { font-family: Arial, sans-serif; background: #f0f2f5; margin: 0; padding: 10px; }
+        .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 900px; margin: auto; }
+        .header-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        .header-table td { border: 1px solid #000; padding: 5px; font-weight: bold; background: #f8f9fa; }
+        .main-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .main-table th, .main-table td { border: 1px solid #000; padding: 8px; text-align: left; }
+        .main-table th { background: #e9ecef; font-size: 0.9rem; }
+        input { width: 100%; border: none; outline: none; background: transparent; font-size: 1rem; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; color: white; margin: 5px; }
+        .btn-add { background: #28a745; }
+        .btn-send { background: var(--cap-blue); width: 100%; margin-top: 20px; font-size: 1.1rem; }
+        .total-row { background: #eee; font-weight: bold; }
         .hidden { display: none; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background: #f8f9fa; }
-        .filter-section { background: #e9ecef; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
     </style>
 </head>
 <body>
 
-<div class="header">
-    <h1>Reporte de Horas Adicionales</h1>
+<div class="card">
+    <h2 style="text-align:center; color: var(--cap-blue);">Horas adicionales</h2>
+    
+    <table class="header-table">
+        <tr>
+            <td>Nombre:</td>
+            <td><input type="text" id="nombreEmp" placeholder="Nombre Completo"></td>
+            <td>No. de empleado:</td>
+            <td><input type="text" id="idEmp" placeholder="P000"></td>
+        </tr>
+        <tr>
+            <td>Correo:</td>
+            <td colspan="3"><input type="email" id="correoEmp" placeholder="usuario@cap.edu.mx"></td>
+        </tr>
+    </table>
+
+    <table class="main-table" id="tablaActividades">
+        <thead>
+            <tr>
+                <th style="width: 20%;">Fecha</th>
+                <th style="width: 15%;">Tiempo (hrs):</th>
+                <th style="width: 65%;">Actividad:</th>
+            </tr>
+        </thead>
+        <tbody id="cuerpoTabla">
+            <tr>
+                <td><input type="date" class="row-fecha"></td>
+                <td><input type="number" class="row-horas" oninput="calcularTotal()" step="0.5"></td>
+                <td><input type="text" class="row-act"></td>
+            </tr>
+        </tbody>
+        <tfoot>
+            <tr class="total-row">
+                <td>Total</td>
+                <td id="totalHoras">0</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <button class="btn btn-add" onclick="agregarFila()">+ Añadir día / fila</button>
+    <button class="btn btn-send" onclick="enviarReporteCompleto()">ENVIAR REPORTE QUINCENAL</button>
+    
+    <hr>
+    <button class="btn" style="background:#6c757d; font-size:0.8rem;" onclick="accesoSupervisor()">Panel Supervisor</button>
 </div>
 
-<div id="view-user" class="card">
-    <h2>📝 Registrar horas</h2>
-    <input type="email" id="email" placeholder="Correo @cap.edu.mx">
-    <input type="text" id="numEmp" placeholder="Número de Empleado">
-    <input type="text" id="nombre" placeholder="Nombre Completo">
-    <input type="date" id="fecha">
-    <input type="number" id="horas" placeholder="Cantidad de horas (ej. 1.5)">
-    <textarea id="actividad" placeholder="Descripción de la actividad realizada"></textarea>
-    <button class="btn-main" onclick="enviarReporte()">Enviar Reporte</button>
-    <button class="btn-admin" onclick="mostrarLoginAdmin()">Acceso Supervisor</button>
-</div>
-
-<div id="view-admin" class="card hidden">
-    <h2>Panel de Control (Supervisor)</h2>
-    <div class="filter-section">
-        <label>Rango de Quincena:</label>
-        <input type="date" id="q-inicio"> al <input type="date" id="q-fin">
-        <button class="btn-copy" onclick="copiarQuincena()">📋 Copiar Tabla para Jefe</button>
-    </div>
-    <div style="overflow-x:auto;">
-        <table id="tabla-total">
-            <thead>
-                <tr><th>Empleado</th><th>ID</th><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr>
-            </thead>
-            <tbody id="lista-reportes"></tbody>
-        </table>
-    </div>
-    <button onclick="location.reload()" style="background:#cc0000; margin-top:20px;">Cerrar Sesión</button>
+<div id="view-admin" class="card hidden" style="margin-top:20px;">
+    <h3>Reportes Recibidos</h3>
+    <div id="lista-reportes"></div>
+    <button class="btn" style="background:#dc3545" onclick="location.reload()">Cerrar</button>
 </div>
 
 <script>
-    // CONFIGURACIÓN DE FIREBASE
+    // --- PEGA TUS DATOS DE FIREBASE AQUÍ ---
     const firebaseConfig = {
         apiKey: "AIzaSyA8kdp8RqrgCPiCCpAQw3Zp06-zLtHsIdU",
         authDomain: "horasadicionales-seccap.firebaseapp.com",
@@ -73,88 +90,91 @@
         measurementId: "G-PNZE1CNG8D"
     };
 
-    // Inicializar Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    async function enviarReporte() {
-        const email = document.getElementById('email').value;
-        const numEmp = document.getElementById('numEmp').value;
-        const nombre = document.getElementById('nombre').value;
-        const fecha = document.getElementById('fecha').value;
-        const horas = document.getElementById('horas').value;
-        const actividad = document.getElementById('actividad').value;
+    function agregarFila() {
+        const tbody = document.getElementById('cuerpoTabla');
+        const nuevaFila = document.createElement('tr');
+        nuevaFila.innerHTML = `
+            <td><input type="date" class="row-fecha"></td>
+            <td><input type="number" class="row-horas" oninput="calcularTotal()" step="0.5"></td>
+            <td><input type="text" class="row-act"></td>
+        `;
+        tbody.appendChild(nuevaFila);
+    }
 
-        // Validación de dominio
-        if(!email.toLowerCase().endsWith('@cap.edu.mx')) {
-            alert("Error: Solo se permiten correos @cap.edu.mx");
-            return;
-        }
+    function calcularTotal() {
+        let suma = 0;
+        document.querySelectorAll('.row-horas').forEach(input => {
+            suma += parseFloat(input.value) || 0;
+        });
+        document.getElementById('totalHoras').innerText = suma;
+    }
 
-        if(!nombre || !fecha || !horas || !numEmp) {
-            alert("Por favor llena todos los campos");
-            return;
-        }
+    async function enviarReporteCompleto() {
+        const nombre = document.getElementById('nombreEmp').value;
+        const num = document.getElementById('idEmp').value;
+        const correo = document.getElementById('correoEmp').value;
+        const total = document.getElementById('totalHoras').innerText;
+
+        if(!correo.toLowerCase().endsWith('@cap.edu.mx')) return alert("Usa tu correo institucional");
+        if(!nombre || !num) return alert("Falta nombre o número de empleado");
+
+        // Recopilar filas
+        let actividades = [];
+        document.querySelectorAll('#cuerpoTabla tr').forEach(fila => {
+            const fecha = fila.querySelector('.row-fecha').value;
+            const hrs = fila.querySelector('.row-horas').value;
+            const act = fila.querySelector('.row-act').value;
+            if(fecha && hrs) actividades.push({ fecha, hrs, act });
+        });
+
+        if(actividades.length === 0) return alert("Agrega al menos una actividad");
 
         try {
-            await db.collection("reportes").add({
-                email, numEmp, nombre, fecha, horas, actividad,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            await db.collection("reportes_consolidados").add({
+                nombre, num, correo, total, actividades,
+                fechaEnvio: new Date().toISOString()
             });
-            alert("✅ Reporte enviado correctamente a la nube.");
-            // Limpiar campos de actividad y horas
-            document.getElementById('actividad').value = "";
-            document.getElementById('horas').value = "";
+            alert("✅ Reporte de quincena enviado con éxito.");
+            location.reload();
         } catch (e) {
-            alert("Error al conectar con la base de datos: " + e.message);
+            alert("Error: " + e.message);
         }
     }
 
-    function mostrarLoginAdmin() {
-        const pass = prompt("Contraseña de Supervisor:");
-        if(pass === "admin123") { // Puedes cambiar esta clave
-            document.getElementById('view-user').classList.add('hidden');
+    function accesoSupervisor() {
+        const p = prompt("Clave:");
+        if(p === "admin123") {
             document.getElementById('view-admin').classList.remove('hidden');
-            cargarDatosAdmin();
-        } else {
-            alert("Acceso denegado");
+            cargarAdmin();
         }
     }
 
-    async function cargarDatosAdmin() {
-        const snapshot = await db.collection("reportes").orderBy("fecha", "desc").get();
-        const tbody = document.getElementById('lista-reportes');
-        tbody.innerHTML = "";
-        snapshot.forEach(doc => {
+    async function cargarAdmin() {
+        const snap = await db.collection("reportes_consolidados").get();
+        const div = document.getElementById('lista-reportes');
+        div.innerHTML = "";
+        snap.forEach(doc => {
             const r = doc.data();
-            tbody.innerHTML += `<tr><td>${r.nombre}</td><td>${r.numEmp}</td><td>${r.fecha}</td><td>${r.horas}</td><td>${r.actividad}</td></tr>`;
+            div.innerHTML += `
+                <div style="border:1px solid #ccc; padding:10px; margin-bottom:10px;">
+                    <strong>${r.nombre} (${r.num})</strong> - Total: ${r.total} hrs<br>
+                    <button onclick="copiarAlPortapapeles('${r.nombre}', '${r.num}', ${JSON.stringify(r.actividades).replace(/"/g, '&quot;')}, '${r.total}')">Copiar para Correo</button>
+                </div>
+            `;
         });
     }
 
-    function copiarQuincena() {
-        const inicio = document.getElementById('q-inicio').value;
-        const fin = document.getElementById('q-fin').value;
-        if(!inicio || !fin) return alert("Selecciona fecha de inicio y fin");
-
-        let tablaTexto = "REPORTE QUINCENAL\nNombre\tID\tFecha\tHoras\tActividad\n";
-        let encontrados = 0;
-        
-        const filas = document.querySelectorAll("#lista-reportes tr");
-        filas.forEach(fila => {
-            const c = fila.children;
-            const fFecha = c[2].innerText;
-            if(fFecha >= inicio && fFecha <= fin) {
-                tablaTexto += `${c[0].innerText}\t${c[1].innerText}\t${c[2].innerText}\t${c[3].innerText}\t${c[4].innerText}\n`;
-                encontrados++;
-            }
+    function copiarAlPortapapeles(nombre, id, acts, total) {
+        let txt = `Nombre: ${nombre}\tNo. empleado: ${id}\nFecha\tHoras\tActividad\n`;
+        acts.forEach(a => {
+            txt += `${a.fecha}\t${a.hrs}\t${a.act}\n`;
         });
-
-        if(encontrados === 0) {
-            alert("No hay registros en esas fechas.");
-        } else {
-            navigator.clipboard.writeText(tablaTexto);
-            alert("Copiado con éxito: " + encontrados + " registros listos para el correo.");
-        }
+        txt += `TOTAL\t${total}`;
+        navigator.clipboard.writeText(txt);
+        alert("Copiado para pegar en Outlook.");
     }
 </script>
 </body>
