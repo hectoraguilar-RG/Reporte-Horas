@@ -15,7 +15,7 @@
         .header-item label { display: block; font-weight: bold; color: var(--cap-blue); font-size: 0.85rem; margin-bottom: 5px; }
         input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
-        th { background: var(--cap-blue); color: #ffffff !important; padding: 12px; font-size: 0.9rem; border: 1px solid #002244; }
+        th { background: var(--cap-blue); color: white !important; padding: 12px; font-size: 0.9rem; border: 1px solid #002244; }
         td { border: 1px solid #ddd; padding: 8px; }
         .btn { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; margin: 5px 0; transition: 0.3s; }
         .btn-send { background: var(--cap-blue); width: 100%; font-size: 1.1rem; }
@@ -55,7 +55,7 @@
     </div>
     <div style="overflow-x:auto;">
         <table>
-            <thead><tr><th>Fecha</th><th style="width:80px;">Hrs</th><th>Actividad realizada</th></tr></thead>
+            <thead><tr><th style="color:white;">Fecha</th><th style="color:white; width:80px;">Hrs</th><th style="color:white;">Actividad realizada</th></tr></thead>
             <tbody id="cuerpoTabla">
                 <tr>
                     <td><input type="date" class="row-fecha"></td>
@@ -188,7 +188,6 @@
 
     async function cargarDatos(area) {
         if(!area) return;
-        // Ahora siempre filtramos para ver solo lo NO archivado
         const snap = await db.collection("reportes_finales")
                             .where("area", "==", area)
                             .where("archivado", "==", false)
@@ -237,7 +236,7 @@
     function cerrarModal() { document.getElementById('modalDetalle').style.display = "none"; }
 
     async function archivarReporte(id) {
-        if(!confirm("¿Archivar este reporte? Desaparecerá de todas las vistas.")) return;
+        if(!confirm("¿Archivar este reporte?")) return;
         await db.collection("reportes_finales").doc(id).update({ archivado: true });
         const area = auth.currentUser.email === JEFE_EMAIL ? document.getElementById('filtroMaestro').value : supervisoresAreas[auth.currentUser.email];
         cargarDatos(area);
@@ -246,25 +245,16 @@
     function logout() { auth.signOut().then(() => location.reload()); }
 
     function copiarReporteHTML(r) {
-        // Estilos base
-        const thStyle = 'background-color:#003366; padding:10px; border:1px solid #002244; text-align:center;';
-        const tdStyle = 'padding:8px; border:1px solid #dddddd; color:#000000;';
-
-        let h = `<div style="font-family:Arial, sans-serif;">
+        // REGRESAMOS AL DISEÑO ALARGADO QUE SÍ FUNCIONABA CON EL COLOR BLANCO
+        let h = `<div style="font-family:Arial;">
                     <p><strong>REPORTE DE HORAS - ÁREA: ${r.area}</strong></p>
                     <p>Empleado: ${r.nombre} | ID: ${r.id}</p>
-                    <table border="1" cellspacing="0" cellpadding="0" style="border-collapse:collapse; width:auto; min-width:400px; border:1px solid #dddddd;">
-                        <thead>
-                            <tr bgcolor="#003366" style="background-color:#003366;">
-                                <th style="${thStyle}" bgcolor="#003366">
-                                    <font color="#ffffff" face="Arial, sans-serif"><b>Fecha</b></font>
-                                </th>
-                                <th style="${thStyle}" bgcolor="#003366">
-                                    <font color="#ffffff" face="Arial, sans-serif"><b>Hrs</b></font>
-                                </th>
-                                <th style="${thStyle}" bgcolor="#003366">
-                                    <font color="#ffffff" face="Arial, sans-serif"><b>Actividad realizada</b></font>
-                                </th>
+                    <table border="1" style="border-collapse:collapse; width:100%;">
+                        <thead style="background:#003366; color:white;">
+                            <tr>
+                                <th style="padding:8px; color:white !important;">Fecha</th>
+                                <th style="padding:8px; color:white !important;">Hrs</th>
+                                <th style="padding:8px; color:white !important;">Actividad</th>
                             </tr>
                         </thead>
                         <tbody>`;
@@ -273,17 +263,17 @@
             const fParts = a.fecha.split('-');
             const fFormat = fParts.length > 1 ? `${fParts[2]}-${fParts[1]}-${fParts[0]}` : a.fecha;
             h += `<tr>
-                    <td style="${tdStyle}">${fFormat}</td>
-                    <td style="${tdStyle} text-align:center;">${a.hrs}</td>
-                    <td style="${tdStyle}">${a.act}</td>
+                    <td style="padding:8px;">${fFormat}</td>
+                    <td style="padding:8px; text-align:center;">${a.hrs}</td>
+                    <td style="padding:8px;">${a.act}</td>
                   </tr>`;
         });
 
         h += `</tbody>
-                <tfoot style="background-color:#eeeeee;">
-                    <tr bgcolor="#eeeeee">
-                        <td colspan="2" style="${tdStyle} text-align:right;"><strong>TOTAL:</strong></td>
-                        <td style="${tdStyle}"><strong>${r.total} hrs</strong></td>
+                <tfoot style="background:#eee;">
+                    <tr>
+                        <td colspan="2" style="padding:8px; text-align:right;"><strong>TOTAL:</strong></td>
+                        <td style="padding:8px;"><strong>${r.total} hrs</strong></td>
                     </tr>
                 </tfoot>
             </table>
@@ -295,7 +285,7 @@
                 'text/html': blob, 
                 'text/plain': new Blob([r.nombre], {type:'text/plain'}) 
             })
-        ]).then(() => alert("✅ Copiado con formato compatible con Outlook."));
+        ]).then(() => alert("✅ Copiado. Listo para pegar en correo."));
     }
 
     function cambiarVistaJefe() { cargarDatos(document.getElementById('filtroMaestro').value); }
