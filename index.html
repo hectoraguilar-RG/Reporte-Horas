@@ -243,18 +243,23 @@
     }
 
     function logout() { auth.signOut().then(() => location.reload()); }
-
     function copiarReporteHTML(r) {
-        // REGRESAMOS AL DISEÑO ALARGADO QUE SÍ FUNCIONABA CON EL COLOR BLANCO
-        let h = `<div style="font-family:Arial;">
+        // Configuramos un azul claro para el fondo y negro para la letra
+        // Esto asegura legibilidad total en Outlook
+        const headerBG = "#D6EAF8"; // Azul celeste claro
+        const headerText = "#000000"; // Negro
+        const thStyle = `background-color:${headerBG}; padding:10px; border:1px solid #002244; text-align:center; color:${headerText}; font-weight:bold;`;
+        const tdStyle = 'padding:8px; border:1px solid #dddddd; color:#000000;';
+
+        let h = `<div style="font-family:Arial, sans-serif;">
                     <p><strong>REPORTE DE HORAS - ÁREA: ${r.area}</strong></p>
                     <p>Empleado: ${r.nombre} | ID: ${r.id}</p>
-                    <table border="1" style="border-collapse:collapse; width:100%;">
-                        <thead style="background:#003366; color:white;">
-                            <tr>
-                                <th style="padding:8px; color:white !important;">Fecha</th>
-                                <th style="padding:8px; color:white !important;">Hrs</th>
-                                <th style="padding:8px; color:white !important;">Actividad</th>
+                    <table border="1" cellspacing="0" cellpadding="0" style="border-collapse:collapse; width:100%; border:1px solid #dddddd;">
+                        <thead>
+                            <tr bgcolor="${headerBG}">
+                                <th style="${thStyle}">Fecha</th>
+                                <th style="${thStyle}">Hrs</th>
+                                <th style="${thStyle}">Actividad realizada</th>
                             </tr>
                         </thead>
                         <tbody>`;
@@ -263,17 +268,17 @@
             const fParts = a.fecha.split('-');
             const fFormat = fParts.length > 1 ? `${fParts[2]}-${fParts[1]}-${fParts[0]}` : a.fecha;
             h += `<tr>
-                    <td style="padding:8px;">${fFormat}</td>
-                    <td style="padding:8px; text-align:center;">${a.hrs}</td>
-                    <td style="padding:8px;">${a.act}</td>
+                    <td style="${tdStyle}">${fFormat}</td>
+                    <td style="${tdStyle} text-align:center;">${a.hrs}</td>
+                    <td style="${tdStyle}">${a.act}</td>
                   </tr>`;
         });
 
         h += `</tbody>
-                <tfoot style="background:#eee;">
-                    <tr>
-                        <td colspan="2" style="padding:8px; text-align:right;"><strong>TOTAL:</strong></td>
-                        <td style="padding:8px;"><strong>${r.total} hrs</strong></td>
+                <tfoot style="background-color:#eeeeee;">
+                    <tr bgcolor="#eeeeee">
+                        <td colspan="2" style="${tdStyle} text-align:right;"><strong>TOTAL:</strong></td>
+                        <td style="${tdStyle}"><strong>${r.total} hrs</strong></td>
                     </tr>
                 </tfoot>
             </table>
@@ -285,7 +290,7 @@
                 'text/html': blob, 
                 'text/plain': new Blob([r.nombre], {type:'text/plain'}) 
             })
-        ]).then(() => alert("✅ Copiado. Listo para pegar en correo."));
+        ]).then(() => alert("✅ Copiado con encabezado de alto contraste para Outlook."));
     }
 
     function cambiarVistaJefe() { cargarDatos(document.getElementById('filtroMaestro').value); }
