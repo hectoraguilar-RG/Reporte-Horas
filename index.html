@@ -246,19 +246,25 @@
     function logout() { auth.signOut().then(() => location.reload()); }
 
     function copiarReporteHTML(r) {
+        // Estilos base
         const thStyle = 'background-color:#003366; padding:10px; border:1px solid #002244; text-align:center;';
         const tdStyle = 'padding:8px; border:1px solid #dddddd; color:#000000;';
-        const spanStyle = 'color:#ffffff !important; font-weight:bold; font-family:Arial, sans-serif; font-size:14px;';
 
         let h = `<div style="font-family:Arial, sans-serif;">
                     <p><strong>REPORTE DE HORAS - ÁREA: ${r.area}</strong></p>
                     <p>Empleado: ${r.nombre} | ID: ${r.id}</p>
                     <table border="1" cellspacing="0" cellpadding="0" style="border-collapse:collapse; width:auto; min-width:400px; border:1px solid #dddddd;">
                         <thead>
-                            <tr style="background-color:#003366;">
-                                <th style="${thStyle}"><span style="${spanStyle}">Fecha</span></th>
-                                <th style="${thStyle}"><span style="${spanStyle}">Hrs</span></th>
-                                <th style="${thStyle}"><span style="${spanStyle}">Actividad realizada</span></th>
+                            <tr bgcolor="#003366" style="background-color:#003366;">
+                                <th style="${thStyle}" bgcolor="#003366">
+                                    <font color="#ffffff" face="Arial, sans-serif"><b>Fecha</b></font>
+                                </th>
+                                <th style="${thStyle}" bgcolor="#003366">
+                                    <font color="#ffffff" face="Arial, sans-serif"><b>Hrs</b></font>
+                                </th>
+                                <th style="${thStyle}" bgcolor="#003366">
+                                    <font color="#ffffff" face="Arial, sans-serif"><b>Actividad realizada</b></font>
+                                </th>
                             </tr>
                         </thead>
                         <tbody>`;
@@ -275,7 +281,7 @@
 
         h += `</tbody>
                 <tfoot style="background-color:#eeeeee;">
-                    <tr>
+                    <tr bgcolor="#eeeeee">
                         <td colspan="2" style="${tdStyle} text-align:right;"><strong>TOTAL:</strong></td>
                         <td style="${tdStyle}"><strong>${r.total} hrs</strong></td>
                     </tr>
@@ -284,7 +290,12 @@
         </div>`;
 
         const blob = new Blob([h], { type: 'text/html' });
-        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob, 'text/plain': new Blob([r.nombre], {type:'text/plain'}) })]).then(() => alert("✅ Copiado. Listo para pegar en correo."));
+        navigator.clipboard.write([
+            new ClipboardItem({ 
+                'text/html': blob, 
+                'text/plain': new Blob([r.nombre], {type:'text/plain'}) 
+            })
+        ]).then(() => alert("✅ Copiado con formato compatible con Outlook."));
     }
 
     function cambiarVistaJefe() { cargarDatos(document.getElementById('filtroMaestro').value); }
