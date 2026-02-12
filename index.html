@@ -10,12 +10,12 @@
     <style>
         :root { --cap-blue: #003366; --cap-gold: #c5a059; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7f9; margin: 0; padding: 10px; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 950px; margin: auto; position: relative; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 950px; margin: auto; }
         .header-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; background: #f9f9f9; padding: 15px; border-radius: 8px; border: 1px solid #ddd; }
         .header-item label { display: block; font-weight: bold; color: var(--cap-blue); font-size: 0.85rem; margin-bottom: 5px; }
         input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
-        th { background: var(--cap-blue); color: white !important; padding: 12px; font-size: 0.9rem; border: 1px solid #002244; }
+        th { background: var(--cap-blue); color: #ffffff !important; padding: 12px; font-size: 0.9rem; border: 1px solid #002244; }
         td { border: 1px solid #ddd; padding: 8px; }
         .btn { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: white; margin: 5px 0; transition: 0.3s; }
         .btn-send { background: var(--cap-blue); width: 100%; font-size: 1.1rem; }
@@ -53,7 +53,6 @@
         </div>
         <div class="header-item"><label>Correo CAP:</label><input type="email" id="correoEmp" required></div>
     </div>
-    
     <div style="overflow-x:auto;">
         <table>
             <thead><tr><th>Fecha</th><th style="width:80px;">Hrs</th><th>Actividad realizada</th></tr></thead>
@@ -69,10 +68,7 @@
     <div style="text-align:right; font-size: 1.2rem; padding: 15px; font-weight: bold; color: var(--cap-blue);">Total: <span id="totalHoras">0</span> hrs</div>
     <button class="btn" style="background:#28a745; width:auto; padding:10px 20px;" onclick="agregarFila()">+ Añadir día</button>
     <button class="btn btn-send" onclick="enviarReporte()">ENVIAR REPORTE</button>
-    
-    <div class="footer-link">
-        <a onclick="toggleView('login-view')">⚙️ Acceso Supervisores</a>
-    </div>
+    <div class="footer-link"><a onclick="toggleView('login-view')">⚙️ Acceso Supervisores</a></div>
 </div>
 
 <div id="login-view" class="card hidden">
@@ -90,7 +86,7 @@
         <select id="filtroMaestro" onchange="cambiarVistaJefe()"><option value="Primaria">Primaria</option><option value="Secundaria">Secundaria</option><option value="Preparatoria">Preparatoria</option><option value="Oficios">Oficios</option><option value="Electricidad">Electricidad</option><option value="Jardineria">Jardineria</option><option value="Carpinteria">Carpinteria</option></select>
     </div>
     <input type="text" id="buscador" class="search-bar" placeholder="🔍 Buscar empleado..." onkeyup="filtrarPorNombre()">
-    <div id="lista-reportes">Cargando...</div>
+    <div id="lista-reportes">Cargando reportes pendientes...</div>
     <button class="btn" style="background:#dc3545; width:100%; margin-top:20px;" onclick="logout()">Cerrar Sesión</button>
 </div>
 
@@ -192,7 +188,11 @@
 
     async function cargarDatos(area) {
         if(!area) return;
-        const snap = await db.collection("reportes_finales").where("area", "==", area).where("archivado", "==", false).get();
+        // Ahora siempre filtramos para ver solo lo NO archivado
+        const snap = await db.collection("reportes_finales")
+                            .where("area", "==", area)
+                            .where("archivado", "==", false)
+                            .get();
         reportesCargados = [];
         snap.forEach(doc => reportesCargados.push({idDoc: doc.id, ...doc.data()}));
         reportesCargados.sort((a, b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
@@ -201,7 +201,7 @@
 
     function renderizarLista(lista) {
         const contenedor = document.getElementById('lista-reportes');
-        contenedor.innerHTML = lista.length === 0 ? "Sin reportes pendientes." : "";
+        contenedor.innerHTML = lista.length === 0 ? "No hay reportes pendientes." : "";
         lista.forEach(r => {
             const dataStr = JSON.stringify(r).replace(/"/g, '&quot;');
             contenedor.innerHTML += `
@@ -237,28 +237,28 @@
     function cerrarModal() { document.getElementById('modalDetalle').style.display = "none"; }
 
     async function archivarReporte(id) {
-        if(!confirm("¿Archivar?")) return;
+        if(!confirm("¿Archivar este reporte? Desaparecerá de todas las vistas.")) return;
         await db.collection("reportes_finales").doc(id).update({ archivado: true });
-        cargarDatos(auth.currentUser.email === JEFE_EMAIL ? document.getElementById('filtroMaestro').value : supervisoresAreas[auth.currentUser.email]);
+        const area = auth.currentUser.email === JEFE_EMAIL ? document.getElementById('filtroMaestro').value : supervisoresAreas[auth.currentUser.email];
+        cargarDatos(area);
     }
 
     function logout() { auth.signOut().then(() => location.reload()); }
 
     function copiarReporteHTML(r) {
-        // Estilos ultra-compatibles para Outlook
-        const thStyle = 'padding:8px; background-color:#003366; background:#003366; color:#ffffff; font-weight:bold; text-align:center; border:1px solid #002244;';
-        const tdStyle = 'padding:8px; border:1px solid #ddd; min-width:80px; color:#000000;';
-        const fontStyle = 'color:#ffffff !important; font-family:Arial, sans-serif;'; // Forzamos color blanco aquí
+        const thStyle = 'background-color:#003366; padding:10px; border:1px solid #002244; text-align:center;';
+        const tdStyle = 'padding:8px; border:1px solid #dddddd; color:#000000;';
+        const spanStyle = 'color:#ffffff !important; font-weight:bold; font-family:Arial, sans-serif; font-size:14px;';
 
         let h = `<div style="font-family:Arial, sans-serif;">
                     <p><strong>REPORTE DE HORAS - ÁREA: ${r.area}</strong></p>
                     <p>Empleado: ${r.nombre} | ID: ${r.id}</p>
-                    <table border="1" style="border-collapse:collapse; width:auto; min-width:400px; border:1px solid #ddd;">
+                    <table border="1" cellspacing="0" cellpadding="0" style="border-collapse:collapse; width:auto; min-width:400px; border:1px solid #dddddd;">
                         <thead>
                             <tr style="background-color:#003366;">
-                                <th style="${thStyle}"><span style="${fontStyle}">Fecha</span></th>
-                                <th style="${thStyle}"><span style="${fontStyle}">Hrs</span></th>
-                                <th style="${thStyle}"><span style="${fontStyle}">Actividad realizada</span></th>
+                                <th style="${thStyle}"><span style="${spanStyle}">Fecha</span></th>
+                                <th style="${thStyle}"><span style="${spanStyle}">Hrs</span></th>
+                                <th style="${thStyle}"><span style="${spanStyle}">Actividad realizada</span></th>
                             </tr>
                         </thead>
                         <tbody>`;
@@ -274,7 +274,7 @@
         });
 
         h += `</tbody>
-                <tfoot style="background-color:#eee;">
+                <tfoot style="background-color:#eeeeee;">
                     <tr>
                         <td colspan="2" style="${tdStyle} text-align:right;"><strong>TOTAL:</strong></td>
                         <td style="${tdStyle}"><strong>${r.total} hrs</strong></td>
@@ -284,12 +284,7 @@
         </div>`;
 
         const blob = new Blob([h], { type: 'text/html' });
-        navigator.clipboard.write([
-            new ClipboardItem({ 
-                'text/html': blob, 
-                'text/plain': new Blob([`Reporte de ${r.nombre}`], {type:'text/plain'}) 
-            })
-        ]).then(() => alert("✅ Copiado. Listo para pegar en correo."));
+        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob, 'text/plain': new Blob([r.nombre], {type:'text/plain'}) })]).then(() => alert("✅ Copiado. El encabezado debería verse blanco en Outlook."));
     }
 
     function cambiarVistaJefe() { cargarDatos(document.getElementById('filtroMaestro').value); }
