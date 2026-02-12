@@ -24,11 +24,10 @@
         .btn-archive { background: #dc3545; padding: 5px 10px; font-size: 0.75rem; }
         .hidden { display: none; }
         .admin-entry { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
-        .search-bar { width: 100%; padding: 10px; margin-bottom: 15px; border: 2px solid var(--cap-gold); border-radius: 8px; font-size: 1rem; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
         .modal-content { background: white; margin: 5% auto; padding: 20px; width: 90%; max-width: 800px; border-radius: 12px; max-height: 80vh; overflow-y: auto; }
         .footer-link { text-align: center; margin-top: 20px; }
-        .footer-link a { color: #888; font-size: 0.8rem; text-decoration: none; cursor: pointer; }
+        .footer-link a { color: #888; font-size: 0.8rem; text-decoration: none; cursor: pointer; display: block; margin: 5px; }
     </style>
 </head>
 <body>
@@ -53,9 +52,10 @@
         </div>
         <div class="header-item"><label>Correo CAP:</label><input type="email" id="correoEmp" required></div>
     </div>
+    
     <div style="overflow-x:auto;">
         <table>
-            <thead><tr><th style="color:white;">Fecha</th><th style="color:white; width:80px;">Hrs</th><th style="color:white;">Actividad realizada</th></tr></thead>
+            <thead><tr><th>Fecha</th><th style="width:80px;">Hrs</th><th>Actividad realizada</th></tr></thead>
             <tbody id="cuerpoTabla">
                 <tr>
                     <td><input type="date" class="row-fecha"></td>
@@ -68,37 +68,41 @@
     <div style="text-align:right; font-size: 1.2rem; padding: 15px; font-weight: bold; color: var(--cap-blue);">Total: <span id="totalHoras">0</span> hrs</div>
     <button class="btn" style="background:#28a745; width:auto; padding:10px 20px;" onclick="agregarFila()">+ Añadir día</button>
     <button class="btn btn-send" onclick="enviarReporte()">ENVIAR REPORTE</button>
-    <div class="footer-link"><a onclick="toggleView('login-view')">⚙️ Acceso Supervisores</a></div>
+    
+    <div class="footer-link">
+        <a onclick="consultarUltimo()" style="color: var(--cap-blue); font-weight: bold;">🔍 Consultar mi último reporte enviado</a>
+        <a onclick="toggleView('login-view')">⚙️ Acceso Supervisores</a>
+    </div>
 </div>
 
 <div id="login-view" class="card hidden">
     <h3>Acceso Supervisores</h3>
-    <input type="email" id="loginEmail" placeholder="Correo institucional" style="margin-bottom:10px;">
-    <input type="password" id="loginPass" placeholder="Contraseña" style="margin-bottom:15px;">
+    <input type="email" id="loginEmail" placeholder="Correo institucional">
+    <input type="password" id="loginPass" placeholder="Contraseña">
     <button class="btn btn-send" onclick="loginSupervisor()">Entrar</button>
     <button class="btn" style="background:#6c757d; width:100%;" onclick="toggleView('user-view')">Volver</button>
 </div>
 
 <div id="admin-view" class="card hidden">
-    <h3 id="tituloAdmin">Panel de Control</h3>
+    <h3>Panel de Control</h3>
     <div id="wrapper-maestro" class="hidden" style="background:#fff3cd; padding:10px; border-radius:8px; margin-bottom:15px;">
-        <label><b>Modo Jefe - Filtrar área:</b></label>
         <select id="filtroMaestro" onchange="cambiarVistaJefe()"><option value="Primaria">Primaria</option><option value="Secundaria">Secundaria</option><option value="Preparatoria">Preparatoria</option><option value="Oficios">Oficios</option><option value="Electricidad">Electricidad</option><option value="Jardineria">Jardineria</option><option value="Carpinteria">Carpinteria</option></select>
     </div>
-    <input type="text" id="buscador" class="search-bar" placeholder="🔍 Buscar empleado..." onkeyup="filtrarPorNombre()">
-    <div id="lista-reportes">Cargando reportes pendientes...</div>
-    <button class="btn" style="background:#dc3545; width:100%; margin-top:20px;" onclick="logout()">Cerrar Sesión</button>
+    <input type="text" id="buscador" placeholder="🔍 Buscar empleado..." onkeyup="filtrarPorNombre()" style="margin-bottom:15px; padding:10px; width:100%; border:1px solid var(--cap-gold); border-radius:8px;">
+    <div id="lista-reportes">Cargando...</div>
+    <button class="btn" style="background:#dc3545; width:100%;" onclick="logout()">Cerrar Sesión</button>
 </div>
 
 <div id="modalDetalle" class="modal">
     <div class="modal-content">
         <h3 id="modalTitulo" style="color:var(--cap-blue);"></h3>
         <div id="modalCuerpo"></div>
-        <button class="btn" style="background:#6c757d; width:100%; margin-top:20px;" onclick="cerrarModal()">Cerrar Vista</button>
+        <button class="btn" style="background:#6c757d; width:100%; margin-top:20px;" onclick="cerrarModal()">Cerrar</button>
     </div>
 </div>
 
 <script>
+    // CONFIGURACIÓN FIREBASE (Mantén la tuya)
     const firebaseConfig = {
         apiKey: "AIzaSyA8kdp8RqrgCPiCCpAQw3Zp06-zLtHsIdU",
         authDomain: "horasadicionales-seccap.firebaseapp.com",
@@ -124,8 +128,7 @@
         "manuel.huerta@cap.edu.mx": "Carpinteria"
     };
 
-    let reportesCargados = [];
-
+    // FUNCIONES BASE
     function agregarFila() {
         const tr = document.createElement('tr');
         tr.innerHTML = '<td><input type="date" class="row-fecha"></td><td><input type="number" class="row-horas" oninput="calcularTotal()" step="0.5"></td><td><input type="text" class="row-act"></td>';
@@ -142,6 +145,30 @@
         document.getElementById('login-view').classList.add('hidden');
         document.getElementById('admin-view').classList.add('hidden');
         document.getElementById(v).classList.remove('hidden');
+    }
+
+    // CONSULTA PARA EMPLEADOS
+    async function consultarUltimo() {
+        const id = prompt("Ingresa tu número de empleado para consultar tu último reporte pendiente:");
+        if (!id) return;
+
+        try {
+            const snap = await db.collection("reportes_finales")
+                .where("id", "==", id)
+                .where("archivado", "==", false)
+                .orderBy("fechaEnvio", "desc")
+                .limit(1)
+                .get();
+
+            if (snap.empty) {
+                alert("No se encontró ningún reporte pendiente para este ID. Puede que ya haya sido archivado o que el ID sea incorrecto.");
+            } else {
+                verDetalle(snap.docs[0].data());
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error al consultar. Asegúrate de ingresar el ID correctamente.");
+        }
     }
 
     async function enviarReporte() {
@@ -164,10 +191,11 @@
                 total: document.getElementById('totalHoras').innerText,
                 actividades: filas, fechaEnvio: new Date().toISOString(), archivado: false
             });
-            alert("✅ Enviado."); location.reload();
-        } catch(e) { alert("Error."); }
+            alert("✅ Reporte enviado correctamente."); location.reload();
+        } catch(e) { alert("Error al enviar."); }
     }
 
+    // PANEL SUPERVISOR (LÓGICA)
     async function loginSupervisor() {
         const email = document.getElementById('loginEmail').value;
         const pass = document.getElementById('loginPass').value;
@@ -188,41 +216,34 @@
 
     async function cargarDatos(area) {
         if(!area) return;
-        const snap = await db.collection("reportes_finales")
-                            .where("area", "==", area)
-                            .where("archivado", "==", false)
-                            .get();
-        reportesCargados = [];
-        snap.forEach(doc => reportesCargados.push({idDoc: doc.id, ...doc.data()}));
-        reportesCargados.sort((a, b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
-        renderizarLista(reportesCargados);
+        const snap = await db.collection("reportes_finales").where("area", "==", area).where("archivado", "==", false).get();
+        let reportes = [];
+        snap.forEach(doc => reportes.push({idDoc: doc.id, ...doc.data()}));
+        renderizarLista(reportes);
     }
 
     function renderizarLista(lista) {
         const contenedor = document.getElementById('lista-reportes');
-        contenedor.innerHTML = lista.length === 0 ? "No hay reportes pendientes." : "";
+        contenedor.innerHTML = lista.length === 0 ? "Sin pendientes." : "";
         lista.forEach(r => {
             const dataStr = JSON.stringify(r).replace(/"/g, '&quot;');
             contenedor.innerHTML += `
                 <div class="admin-entry">
                     <div><strong>${r.nombre}</strong><br><small>${r.total} hrs</small></div>
                     <div>
-                        <button class="btn btn-view" onclick="verDetalle(${dataStr})">Ver</button>
-                        <button class="btn btn-copy" onclick="copiarReporteHTML(${dataStr})">Copiar</button>
+                        <button class="btn btn-view" onclick='verDetalle(${dataStr})'>Ver</button>
+                        <button class="btn btn-copy" onclick='copiarReporteHTML(${dataStr})'>Copiar</button>
                         <button class="btn btn-archive" onclick="archivarReporte('${r.idDoc}')">Archivar</button>
                     </div>
                 </div>`;
         });
     }
 
-    function filtrarPorNombre() {
-        const busqueda = document.getElementById('buscador').value.toLowerCase();
-        renderizarLista(reportesCargados.filter(r => r.nombre.toLowerCase().includes(busqueda)));
-    }
-
     function verDetalle(r) {
-        document.getElementById('modalTitulo').innerText = "Detalle: " + r.nombre;
-        let html = `<p><b>ID:</b> ${r.id} | <b>Área:</b> ${r.area}</p><table border="1" style="width:100%; border-collapse:collapse;"><thead><tr style="background:#003366;color:white;"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr></thead><tbody>`;
+        document.getElementById('modalTitulo').innerText = "Reporte de " + r.nombre;
+        let html = `<p><b>ID:</b> ${r.id} | <b>Área:</b> ${r.area}</p>
+                    <table border="1" style="width:100%; border-collapse:collapse;">
+                        <thead><tr style="background:#003366;color:white;"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr></thead><tbody>`;
         r.actividades.forEach(a => {
             const fParts = a.fecha.split('-');
             const fFormat = fParts.length > 1 ? `${fParts[2]}-${fParts[1]}-${fParts[0]}` : a.fecha;
@@ -235,65 +256,37 @@
 
     function cerrarModal() { document.getElementById('modalDetalle').style.display = "none"; }
 
-    async function archivarReporte(id) {
-        if(!confirm("¿Archivar este reporte?")) return;
-        await db.collection("reportes_finales").doc(id).update({ archivado: true });
-        const area = auth.currentUser.email === JEFE_EMAIL ? document.getElementById('filtroMaestro').value : supervisoresAreas[auth.currentUser.email];
-        cargarDatos(area);
+    async function archivarReporte(idDoc) {
+        if(!confirm("¿Archivar reporte?")) return;
+        await db.collection("reportes_finales").doc(idDoc).update({archivado: true});
+        location.reload();
     }
 
-    function logout() { auth.signOut().then(() => location.reload()); }
     function copiarReporteHTML(r) {
-        // Configuramos un azul claro para el fondo y negro para la letra
-        // Esto asegura legibilidad total en Outlook
-        const headerBG = "#D6EAF8"; // Azul celeste claro
-        const headerText = "#000000"; // Negro
-        const thStyle = `background-color:${headerBG}; padding:10px; border:1px solid #002244; text-align:center; color:${headerText}; font-weight:bold;`;
+        const headerBG = "#D6EAF8"; 
+        const thStyle = `background-color:${headerBG}; padding:10px; border:1px solid #002244; text-align:center; color:#000000; font-weight:bold;`;
         const tdStyle = 'padding:8px; border:1px solid #dddddd; color:#000000;';
 
         let h = `<div style="font-family:Arial, sans-serif;">
                     <p><strong>REPORTE DE HORAS - ÁREA: ${r.area}</strong></p>
                     <p>Empleado: ${r.nombre} | ID: ${r.id}</p>
                     <table border="1" cellspacing="0" cellpadding="0" style="border-collapse:collapse; width:100%; border:1px solid #dddddd;">
-                        <thead>
-                            <tr bgcolor="${headerBG}">
-                                <th style="${thStyle}">Fecha</th>
-                                <th style="${thStyle}">Hrs</th>
-                                <th style="${thStyle}">Actividad realizada</th>
-                            </tr>
-                        </thead>
-                        <tbody>`;
+                        <thead><tr bgcolor="${headerBG}">
+                            <th style="${thStyle}">Fecha</th><th style="${thStyle}">Hrs</th><th style="${thStyle}">Actividad realizada</th>
+                        </tr></thead><tbody>`;
         
         r.actividades.forEach(a => {
             const fParts = a.fecha.split('-');
             const fFormat = fParts.length > 1 ? `${fParts[2]}-${fParts[1]}-${fParts[0]}` : a.fecha;
-            h += `<tr>
-                    <td style="${tdStyle}">${fFormat}</td>
-                    <td style="${tdStyle} text-align:center;">${a.hrs}</td>
-                    <td style="${tdStyle}">${a.act}</td>
-                  </tr>`;
+            h += `<tr><td style="${tdStyle}">${fFormat}</td><td style="${tdStyle} text-align:center;">${a.hrs}</td><td style="${tdStyle}">${a.act}</td></tr>`;
         });
-
-        h += `</tbody>
-                <tfoot style="background-color:#eeeeee;">
-                    <tr bgcolor="#eeeeee">
-                        <td colspan="2" style="${tdStyle} text-align:right;"><strong>TOTAL:</strong></td>
-                        <td style="${tdStyle}"><strong>${r.total} hrs</strong></td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>`;
+        h += `</tbody><tfoot bgcolor="#eeeeee"><tr><td colspan="2" style="${tdStyle} text-align:right;"><strong>TOTAL:</strong></td><td style="${tdStyle}"><strong>${r.total} hrs</strong></td></tr></tfoot></table></div>`;
 
         const blob = new Blob([h], { type: 'text/html' });
-        navigator.clipboard.write([
-            new ClipboardItem({ 
-                'text/html': blob, 
-                'text/plain': new Blob([r.nombre], {type:'text/plain'}) 
-            })
-        ]).then(() => alert("✅ Copiado con encabezado de alto contraste para Outlook."));
+        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob, 'text/plain': new Blob([r.nombre], {type:'text/plain'}) })]).then(() => alert("✅ Copiado."));
     }
 
-    function cambiarVistaJefe() { cargarDatos(document.getElementById('filtroMaestro').value); }
+    function logout() { auth.signOut().then(() => location.reload()); }
 </script>
 </body>
 </html>
