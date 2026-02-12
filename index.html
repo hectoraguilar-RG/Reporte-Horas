@@ -147,53 +147,75 @@
         document.getElementById(v).classList.remove('hidden');
     }
 
-    // CONSULTA PARA EMPLEADOS
-    async function consultarUltimo() {
-        const id = prompt("Ingresa tu número de empleado para consultar tu último reporte pendiente:");
-        if (!id) return;
+    // MODIFICACIÓN EN LA FUNCIÓN DE ENVIAR (Para limpiar el ID y confirmar)
+async function enviarReporte() {
+    const area = document.getElementById('areaEmp').value;
+    const nombre = document.getElementById('nombreEmp').value;
+    // Limpiamos el ID: Mayúsculas y sin espacios
+    const rawId = document.getElementById('idEmp').value;
+    const idEmp = rawId.toUpperCase().replace(/\s+/g, ''); 
+    const correo = document.getElementById('correoEmp').value;
 
-        try {
-            const snap = await db.collection("reportes_finales")
-                .where("id", "==", id)
-                .where("archivado", "==", false)
-                .orderBy("fechaEnvio", "desc")
-                .limit(1)
-                .get();
+    if(!area || !nombre || !idEmp || !correo) return alert("❌ Completa todos los campos.");
 
-            if (snap.empty) {
-                alert("No se encontró ningún reporte pendiente para este ID. Puede que ya haya sido archivado o que el ID sea incorrecto.");
-            } else {
-                verDetalle(snap.docs[0].data());
-            }
-        } catch (e) {
-            console.error(e);
-            alert("Error al consultar. Asegúrate de ingresar el ID correctamente.");
-        }
-    }
+    // NUEVO: Mensaje de confirmación
+    const confirmar = confirm(`¿Confirmas que los datos son correctos?\n\nEmpleado: ${nombre}\nID: ${idEmp}\nÁrea: ${area}\n\nUna vez enviado no podrás editarlo.`);
+    if(!confirmar) return;
 
-    async function enviarReporte() {
-        const area = document.getElementById('areaEmp').value;
-        const nombre = document.getElementById('nombreEmp').value;
-        const idEmp = document.getElementById('idEmp').value;
-        const correo = document.getElementById('correoEmp').value;
-        if(!area || !nombre || !idEmp || !correo) return alert("❌ Completa todos los campos.");
-        let filas = [];
-        document.querySelectorAll('#cuerpoTabla tr').forEach(f => {
-            const fecha = f.querySelector('.row-fecha').value;
-            const hrs = f.querySelector('.row-horas').value;
-            const act = f.querySelector('.row-act').value;
-            if(fecha && hrs && act) filas.push({fecha, hrs, act});
+    let filas = [];
+    document.querySelectorAll('#cuerpoTabla tr').forEach(f => {
+        const fecha = f.querySelector('.row-fecha').value;
+        const hrs = f.querySelector('.row-horas').value;
+        const act = f.querySelector('.row-act').value;
+        if(fecha && hrs && act) filas.push({fecha, hrs, act});
+    });
+
+    if(filas.length === 0) return alert("❌ Agrega actividades.");
+
+    try {
+        await db.collection("reportes_finales").add({
+            nombre, 
+            area, 
+            id: idEmp, // Se guarda limpio (P024)
+            correo,
+            total: document.getElementById('totalHoras').innerText,
+            actividades: filas, 
+            fechaEnvio: new Date().toISOString(), 
+            archivado: false
         });
-        if(filas.length === 0) return alert("❌ Agrega actividades.");
-        try {
-            await db.collection("reportes_finales").add({
-                nombre, area, id: idEmp, correo,
-                total: document.getElementById('totalHoras').innerText,
-                actividades: filas, fechaEnvio: new Date().toISOString(), archivado: false
-            });
-            alert("✅ Reporte enviado correctamente."); location.reload();
-        } catch(e) { alert("Error al enviar."); }
+        alert("✅ Reporte enviado con éxito."); 
+        location.reload();
+    } catch(e) { 
+        alert("Error al enviar."); 
     }
+}
+
+// MODIFICACIÓN EN LA CONSULTA (Para que coincida con el guardado limpio)
+async function consultarUltimo() {
+    const respuesta = prompt("Ingresa tu número de empleado:");
+    if (!respuesta) return;
+
+    // Limpiamos la entrada del usuario igual que el guardado
+    const idBusqueda = respuesta.toUpperCase().replace(/\s+/g, '');
+
+    try {
+        const snap = await db.collection("reportes_finales")
+            .where("id", "==", idBusqueda)
+            .where("archivado", "==", false)
+            .get();
+
+        if (snap.empty) {
+            alert(`No se encontró ningún reporte pendiente para el ID: ${idBusqueda}`);
+        } else {
+            let reportes = [];
+            snap.forEach(doc => reportes.push(doc.data()));
+            reportes.sort((a, b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
+            verDetalle(reportes[0]);
+        }
+    } catch (e) {
+        alert("Error al consultar.");
+    }
+}
 
     // PANEL SUPERVISOR (LÓGICA)
     async function loginSupervisor() {
