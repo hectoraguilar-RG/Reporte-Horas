@@ -3,10 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Horas CAP">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/2662/2662189.png">
+
     <title>Control de Horas - CAP</title>
+    
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-auth-compat.js"></script>
+
     <style>
         :root { --cap-blue: #003366; --cap-gold: #c5a059; }
         body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f7f9; margin: 0; padding: 10px; }
@@ -28,6 +37,7 @@
         .modal-content { background: white; margin: 5% auto; padding: 20px; width: 90%; max-width: 800px; border-radius: 12px; max-height: 80vh; overflow-y: auto; }
         .footer-link { text-align: center; margin-top: 20px; }
         .footer-link a { color: #888; font-size: 0.8rem; text-decoration: none; cursor: pointer; display: block; margin: 5px; }
+        .status-badge { font-size: 0.7rem; color: #28a745; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -77,20 +87,24 @@
 
 <div id="login-view" class="card hidden">
     <h3>Acceso Supervisores</h3>
-    <input type="email" id="loginEmail" placeholder="Correo institucional">
-    <input type="password" id="loginPass" placeholder="Contraseña">
+    <input type="email" id="loginEmail" placeholder="Correo institucional" style="margin-bottom:10px;">
+    <input type="password" id="loginPass" placeholder="Contraseña" style="margin-bottom:15px;">
     <button class="btn btn-send" onclick="loginSupervisor()">Entrar</button>
     <button class="btn" style="background:#6c757d; width:100%;" onclick="toggleView('user-view')">Volver</button>
 </div>
 
 <div id="admin-view" class="card hidden">
-    <h3>Panel de Control</h3>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h3 style="margin:0;">Panel de Control <span class="status-badge">● Vivo</span></h3>
+        <button onclick="location.reload()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">🔄</button>
+    </div>
+    
     <div id="wrapper-maestro" class="hidden" style="background:#fff3cd; padding:10px; border-radius:8px; margin-bottom:15px;">
         <select id="filtroMaestro" onchange="cambiarVistaJefe()"><option value="Primaria">Primaria</option><option value="Secundaria">Secundaria</option><option value="Preparatoria">Preparatoria</option><option value="Oficios">Oficios</option><option value="Electricidad">Electricidad</option><option value="Jardineria">Jardineria</option><option value="Carpinteria">Carpinteria</option></select>
     </div>
     <input type="text" id="buscador" placeholder="🔍 Buscar empleado..." onkeyup="filtrarPorNombre()" style="margin-bottom:15px; padding:10px; width:100%; border:1px solid var(--cap-gold); border-radius:8px;">
-    <div id="lista-reportes">Cargando...</div>
-    <button class="btn" style="background:#dc3545; width:100%;" onclick="logout()">Cerrar Sesión</button>
+    <div id="lista-reportes">Conectando con la base de datos...</div>
+    <button class="btn" style="background:#dc3545; width:100%; margin-top:20px;" onclick="logout()">Cerrar Sesión</button>
 </div>
 
 <div id="modalDetalle" class="modal">
@@ -102,7 +116,6 @@
 </div>
 
 <script>
-    // CONFIGURACIÓN FIREBASE (Mantén la tuya)
     const firebaseConfig = {
         apiKey: "AIzaSyA8kdp8RqrgCPiCCpAQw3Zp06-zLtHsIdU",
         authDomain: "horasadicionales-seccap.firebaseapp.com",
@@ -128,7 +141,9 @@
         "manuel.huerta@cap.edu.mx": "Carpinteria"
     };
 
-    // FUNCIONES BASE
+    let unsubscribe = null; 
+    let reportesCargados = [];
+
     function agregarFila() {
         const tr = document.createElement('tr');
         tr.innerHTML = '<td><input type="date" class="row-fecha"></td><td><input type="number" class="row-horas" oninput="calcularTotal()" step="0.5"></td><td><input type="text" class="row-act"></td>';
@@ -147,77 +162,50 @@
         document.getElementById(v).classList.remove('hidden');
     }
 
-    // MODIFICACIÓN EN LA FUNCIÓN DE ENVIAR (Para limpiar el ID y confirmar)
-async function enviarReporte() {
-    const area = document.getElementById('areaEmp').value;
-    const nombre = document.getElementById('nombreEmp').value;
-    // Limpiamos el ID: Mayúsculas y sin espacios
-    const rawId = document.getElementById('idEmp').value;
-    const idEmp = rawId.toUpperCase().replace(/\s+/g, ''); 
-    const correo = document.getElementById('correoEmp').value;
+    async function enviarReporte() {
+        const area = document.getElementById('areaEmp').value;
+        const nombre = document.getElementById('nombreEmp').value;
+        const rawId = document.getElementById('idEmp').value;
+        const idEmp = rawId.toUpperCase().replace(/\s+/g, ''); 
+        const correo = document.getElementById('correoEmp').value;
 
-    if(!area || !nombre || !idEmp || !correo) return alert("❌ Completa todos los campos.");
+        if(!area || !nombre || !idEmp || !correo) return alert("❌ Completa todos los campos.");
+        
+        const confirmar = confirm(`¿Confirmas que los datos son correctos?\n\nEmpleado: ${nombre}\nID: ${idEmp}\nÁrea: ${area}`);
+        if(!confirmar) return;
 
-    // NUEVO: Mensaje de confirmación
-    const confirmar = confirm(`¿Confirmas que los datos son correctos?\n\nEmpleado: ${nombre}\nID: ${idEmp}\nÁrea: ${area}\n\nUna vez enviado no podrás editarlo.`);
-    if(!confirmar) return;
-
-    let filas = [];
-    document.querySelectorAll('#cuerpoTabla tr').forEach(f => {
-        const fecha = f.querySelector('.row-fecha').value;
-        const hrs = f.querySelector('.row-horas').value;
-        const act = f.querySelector('.row-act').value;
-        if(fecha && hrs && act) filas.push({fecha, hrs, act});
-    });
-
-    if(filas.length === 0) return alert("❌ Agrega actividades.");
-
-    try {
-        await db.collection("reportes_finales").add({
-            nombre, 
-            area, 
-            id: idEmp, // Se guarda limpio (P024)
-            correo,
-            total: document.getElementById('totalHoras').innerText,
-            actividades: filas, 
-            fechaEnvio: new Date().toISOString(), 
-            archivado: false
+        let filas = [];
+        document.querySelectorAll('#cuerpoTabla tr').forEach(f => {
+            const fecha = f.querySelector('.row-fecha').value;
+            const hrs = f.querySelector('.row-horas').value;
+            const act = f.querySelector('.row-act').value;
+            if(fecha && hrs && act) filas.push({fecha, hrs, act});
         });
-        alert("✅ Reporte enviado con éxito."); 
-        location.reload();
-    } catch(e) { 
-        alert("Error al enviar."); 
+
+        if(filas.length === 0) return alert("❌ Agrega actividades.");
+        try {
+            await db.collection("reportes_finales").add({
+                nombre, area, id: idEmp, correo,
+                total: document.getElementById('totalHoras').innerText,
+                actividades: filas, fechaEnvio: new Date().toISOString(), archivado: false
+            });
+            alert("✅ Enviado correctamente."); location.reload();
+        } catch(e) { alert("Error."); }
     }
-}
 
-// MODIFICACIÓN EN LA CONSULTA (Para que coincida con el guardado limpio)
-async function consultarUltimo() {
-    const respuesta = prompt("Ingresa tu número de empleado:");
-    if (!respuesta) return;
-
-    // Limpiamos la entrada del usuario igual que el guardado
-    const idBusqueda = respuesta.toUpperCase().replace(/\s+/g, '');
-
-    try {
-        const snap = await db.collection("reportes_finales")
-            .where("id", "==", idBusqueda)
-            .where("archivado", "==", false)
-            .get();
-
-        if (snap.empty) {
-            alert(`No se encontró ningún reporte pendiente para el ID: ${idBusqueda}`);
-        } else {
-            let reportes = [];
-            snap.forEach(doc => reportes.push(doc.data()));
-            reportes.sort((a, b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
-            verDetalle(reportes[0]);
-        }
-    } catch (e) {
-        alert("Error al consultar.");
+    async function consultarUltimo() {
+        const res = prompt("Ingresa tu número de empleado:");
+        if (!res) return;
+        const idBusqueda = res.toUpperCase().replace(/\s+/g, '');
+        try {
+            const snap = await db.collection("reportes_finales").where("id", "==", idBusqueda).where("archivado", "==", false).get();
+            if (snap.empty) return alert("No hay reportes pendientes.");
+            let reps = []; snap.forEach(doc => reps.push(doc.data()));
+            reps.sort((a, b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
+            verDetalle(reps[0]);
+        } catch (e) { alert("Error de consulta."); }
     }
-}
 
-    // PANEL SUPERVISOR (LÓGICA)
     async function loginSupervisor() {
         const email = document.getElementById('loginEmail').value;
         const pass = document.getElementById('loginPass').value;
@@ -229,24 +217,33 @@ async function consultarUltimo() {
             toggleView('admin-view');
             if(user.email === JEFE_EMAIL) {
                 document.getElementById('wrapper-maestro').classList.remove('hidden');
-                cambiarVistaJefe();
+                activarEscuchaRealTime(document.getElementById('filtroMaestro').value);
             } else {
-                cargarDatos(supervisoresAreas[user.email]);
+                activarEscuchaRealTime(supervisoresAreas[user.email]);
             }
         }
     });
 
-    async function cargarDatos(area) {
-        if(!area) return;
-        const snap = await db.collection("reportes_finales").where("area", "==", area).where("archivado", "==", false).get();
-        let reportes = [];
-        snap.forEach(doc => reportes.push({idDoc: doc.id, ...doc.data()}));
-        renderizarLista(reportes);
+    // FUNCIÓN DE TIEMPO REAL
+    function activarEscuchaRealTime(area) {
+        if (unsubscribe) unsubscribe(); 
+        
+        unsubscribe = db.collection("reportes_finales")
+            .where("area", "==", area)
+            .where("archivado", "==", false)
+            .onSnapshot((snap) => {
+                reportesCargados = [];
+                snap.forEach(doc => reportesCargados.push({idDoc: doc.id, ...doc.data()}));
+                reportesCargados.sort((a, b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
+                renderizarLista(reportesCargados);
+            }, (error) => {
+                console.error("Error en tiempo real:", error);
+            });
     }
 
     function renderizarLista(lista) {
         const contenedor = document.getElementById('lista-reportes');
-        contenedor.innerHTML = lista.length === 0 ? "Sin pendientes." : "";
+        contenedor.innerHTML = lista.length === 0 ? "Sin reportes pendientes en esta área." : "";
         lista.forEach(r => {
             const dataStr = JSON.stringify(r).replace(/"/g, '&quot;');
             contenedor.innerHTML += `
@@ -261,11 +258,14 @@ async function consultarUltimo() {
         });
     }
 
+    function filtrarPorNombre() {
+        const bus = document.getElementById('buscador').value.toLowerCase();
+        renderizarLista(reportesCargados.filter(r => r.nombre.toLowerCase().includes(bus)));
+    }
+
     function verDetalle(r) {
-        document.getElementById('modalTitulo').innerText = "Reporte de " + r.nombre;
-        let html = `<p><b>ID:</b> ${r.id} | <b>Área:</b> ${r.area}</p>
-                    <table border="1" style="width:100%; border-collapse:collapse;">
-                        <thead><tr style="background:#003366;color:white;"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr></thead><tbody>`;
+        document.getElementById('modalTitulo').innerText = "Detalle: " + r.nombre;
+        let html = `<table border="1" style="width:100%; border-collapse:collapse;"><thead><tr style="background:#003366;color:white;"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr></thead><tbody>`;
         r.actividades.forEach(a => {
             const fParts = a.fecha.split('-');
             const fFormat = fParts.length > 1 ? `${fParts[2]}-${fParts[1]}-${fParts[0]}` : a.fecha;
@@ -279,33 +279,35 @@ async function consultarUltimo() {
     function cerrarModal() { document.getElementById('modalDetalle').style.display = "none"; }
 
     async function archivarReporte(idDoc) {
-        if(!confirm("¿Archivar reporte?")) return;
-        await db.collection("reportes_finales").doc(idDoc).update({archivado: true});
-        location.reload();
+        if(!confirm("¿Archivar este reporte?")) return;
+        try {
+            await db.collection("reportes_finales").doc(idDoc).update({archivado: true});
+            // onSnapshot se encargará de actualizar la lista automáticamente
+        } catch(e) { alert("Error al archivar."); }
     }
 
     function copiarReporteHTML(r) {
         const headerBG = "#D6EAF8"; 
         const thStyle = `background-color:${headerBG}; padding:10px; border:1px solid #002244; text-align:center; color:#000000; font-weight:bold;`;
         const tdStyle = 'padding:8px; border:1px solid #dddddd; color:#000000;';
-
         let h = `<div style="font-family:Arial, sans-serif;">
                     <p><strong>REPORTE DE HORAS - ÁREA: ${r.area}</strong></p>
                     <p>Empleado: ${r.nombre} | ID: ${r.id}</p>
                     <table border="1" cellspacing="0" cellpadding="0" style="border-collapse:collapse; width:100%; border:1px solid #dddddd;">
-                        <thead><tr bgcolor="${headerBG}">
-                            <th style="${thStyle}">Fecha</th><th style="${thStyle}">Hrs</th><th style="${thStyle}">Actividad realizada</th>
-                        </tr></thead><tbody>`;
-        
+                        <thead><tr bgcolor="${headerBG}"><th style="${thStyle}">Fecha</th><th style="${thStyle}">Hrs</th><th style="${thStyle}">Actividad realizada</th></tr></thead>
+                        <tbody>`;
         r.actividades.forEach(a => {
             const fParts = a.fecha.split('-');
             const fFormat = fParts.length > 1 ? `${fParts[2]}-${fParts[1]}-${fParts[0]}` : a.fecha;
             h += `<tr><td style="${tdStyle}">${fFormat}</td><td style="${tdStyle} text-align:center;">${a.hrs}</td><td style="${tdStyle}">${a.act}</td></tr>`;
         });
         h += `</tbody><tfoot bgcolor="#eeeeee"><tr><td colspan="2" style="${tdStyle} text-align:right;"><strong>TOTAL:</strong></td><td style="${tdStyle}"><strong>${r.total} hrs</strong></td></tr></tfoot></table></div>`;
-
         const blob = new Blob([h], { type: 'text/html' });
-        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob, 'text/plain': new Blob([r.nombre], {type:'text/plain'}) })]).then(() => alert("✅ Copiado."));
+        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob, 'text/plain': new Blob([r.nombre], {type:'text/plain'}) })]).then(() => alert("✅ Copiado para Outlook."));
+    }
+
+    function cambiarVistaJefe() {
+        activarEscuchaRealTime(document.getElementById('filtroMaestro').value);
     }
 
     function logout() { auth.signOut().then(() => location.reload()); }
