@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    
     <meta name="theme-color" content="#003366">
 
     <meta name="mobile-web-app-capable" content="yes">
@@ -17,8 +16,6 @@
     <link rel="manifest" href="manifest.json">
 
     <title>Control de Horas - CAP</title>
-    
-    </head>
     
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-firestore-compat.js"></script>
@@ -39,6 +36,7 @@
         .btn-view { background: #17a2b8; padding: 5px 10px; font-size: 0.75rem; }
         .btn-copy { background: var(--cap-gold); padding: 5px 10px; font-size: 0.75rem; }
         .btn-archive { background: #dc3545; padding: 5px 10px; font-size: 0.75rem; }
+        .btn-bulk { padding: 10px; font-size: 0.85rem; flex: 1; border-radius: 8px; border: none; color: white; cursor: pointer; font-weight: bold; }
         .hidden { display: none; }
         .admin-entry { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
@@ -46,6 +44,12 @@
         .footer-link { text-align: center; margin-top: 20px; }
         .footer-link a { color: #888; font-size: 0.8rem; text-decoration: none; cursor: pointer; display: block; margin: 5px; }
         .status-badge { font-size: 0.7rem; color: #28a745; font-weight: bold; }
+        
+        /* Nuevos estilos para filtros */
+        .filter-section { background: #f0f4f8; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #d1d9e6; }
+        .filter-grid { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 10px; }
+        .filter-group { flex: 1; min-width: 140px; }
+        .filter-group label { display: block; font-size: 0.75rem; font-weight: bold; color: #555; margin-bottom: 4px; }
     </style>
 </head>
 <body>
@@ -106,13 +110,42 @@
         <h3 style="margin:0;">Panel de Control <span class="status-badge">● Vivo</span></h3>
         <button onclick="location.reload()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">🔄</button>
     </div>
-    
-    <div id="wrapper-maestro" class="hidden" style="background:#fff3cd; padding:10px; border-radius:8px; margin-bottom:15px;">
-        <select id="filtroMaestro" onchange="cambiarVistaJefe()"><option value="Primaria">Primaria</option><option value="Secundaria">Secundaria</option><option value="Preparatoria">Preparatoria</option><option value="Oficios">Oficios</option><option value="Electricidad">Electricidad</option><option value="Jardineria">Jardineria</option><option value="Carpinteria">Carpinteria</option></select>
+
+    <div class="filter-section">
+        <div class="filter-grid">
+            <div id="wrapper-maestro" class="filter-group hidden">
+                <label>Área:</label>
+                <select id="filtroMaestro" onchange="cambiarVistaJefe()">
+                    <option value="Primaria">Primaria</option>
+                    <option value="Secundaria">Secundaria</option>
+                    <option value="Preparatoria">Preparatoria</option>
+                    <option value="Oficios">Oficios</option>
+                    <option value="Electricidad">Electricidad</option>
+                    <option value="Jardineria">Jardineria</option>
+                    <option value="Carpinteria">Carpinteria</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Desde:</label>
+                <input type="date" id="filtroFechaInicio">
+            </div>
+            <div class="filter-group">
+                <label>Hasta:</label>
+                <input type="date" id="filtroFechaFin">
+            </div>
+            <button class="btn" style="background:var(--cap-blue); margin:0; height:40px;" onclick="aplicarFiltros()">Filtrar</button>
+        </div>
+        
+        <input type="text" id="buscador" placeholder="🔍 Buscar por nombre..." onkeyup="filtrarPorNombre()" style="margin-bottom:10px;">
+        
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <button class="btn-bulk" style="background:#28a745;" onclick="copiarTodosVisibles()">📋 Copiar Selección</button>
+            <button class="btn-bulk" style="background:#dc3545;" onclick="archivarTodosVisibles()">📁 Archivar Selección</button>
+        </div>
     </div>
-    <input type="text" id="buscador" placeholder="🔍 Buscar empleado..." onkeyup="filtrarPorNombre()" style="margin-bottom:15px; padding:10px; width:100%; border:1px solid var(--cap-gold); border-radius:8px;">
+
     <div id="lista-reportes">Conectando con la base de datos...</div>
-    <button class="btn" style="background:#dc3545; width:100%; margin-top:20px;" onclick="logout()">Cerrar Sesión</button>
+    <button class="btn" style="background:#6c757d; width:100%; margin-top:20px;" onclick="logout()">Cerrar Sesión</button>
 </div>
 
 <div id="modalDetalle" class="modal">
@@ -141,16 +174,17 @@
     const JEFE_EMAIL = "jesus.munoz@cap.edu.mx"; 
     const supervisoresAreas = {
         "jesus.cruz@cap.edu.mx": "Oficios",
-        "edson.alfonso@cap.edu.mx": "Primaria",
-        "hector.aguilar@cap.edu.mx": "Secundaria",
-        "israel.vazquez@cap.edu.mx": "Preparatoria",
-        "omar.ruiz@cap.edu.mx": "Electricidad",
-        "samuel.garcia@cap.edu.mx": "Jardineria",
-        "manuel.huerta@cap.edu.mx": "Carpinteria"
+        "edson.alfonso@cap.edu.mx": "Primaria",
+        "hector.aguilar@cap.edu.mx": "Secundaria",
+        "israel.vazquez@cap.edu.mx": "Preparatoria",
+        "omar.ruiz@cap.edu.mx": "Electricidad",
+        "samuel.garcia@cap.edu.mx": "Jardineria",
+        "manuel.huerta@cap.edu.mx": "Carpinteria"
     };
 
     let unsubscribe = null; 
-    let reportesCargados = [];
+    let reportesCargados = []; // Todos los de la DB
+    let reportesFiltrados = []; // Solo los que se ven en pantalla
 
     function agregarFila() {
         const tr = document.createElement('tr');
@@ -195,7 +229,9 @@
             await db.collection("reportes_finales").add({
                 nombre, area, id: idEmp, correo,
                 total: document.getElementById('totalHoras').innerText,
-                actividades: filas, fechaEnvio: new Date().toISOString(), archivado: false
+                actividades: filas, 
+                fechaEnvio: new Date().toISOString(), 
+                archivado: false
             });
             alert("✅ Enviado correctamente."); location.reload();
         } catch(e) { alert("Error."); }
@@ -232,7 +268,6 @@
         }
     });
 
-    // FUNCIÓN DE TIEMPO REAL
     function activarEscuchaRealTime(area) {
         if (unsubscribe) unsubscribe(); 
         
@@ -243,7 +278,8 @@
                 reportesCargados = [];
                 snap.forEach(doc => reportesCargados.push({idDoc: doc.id, ...doc.data()}));
                 reportesCargados.sort((a, b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
-                renderizarLista(reportesCargados);
+                reportesFiltrados = [...reportesCargados];
+                renderizarLista(reportesFiltrados);
             }, (error) => {
                 console.error("Error en tiempo real:", error);
             });
@@ -256,7 +292,7 @@
             const dataStr = JSON.stringify(r).replace(/"/g, '&quot;');
             contenedor.innerHTML += `
                 <div class="admin-entry">
-                    <div><strong>${r.nombre}</strong><br><small>${r.total} hrs</small></div>
+                    <div><strong>${r.nombre}</strong><br><small>${r.total} hrs | Envío: ${new Date(r.fechaEnvio).toLocaleDateString()}</small></div>
                     <div>
                         <button class="btn btn-view" onclick='verDetalle(${dataStr})'>Ver</button>
                         <button class="btn btn-copy" onclick='copiarReporteHTML(${dataStr})'>Copiar</button>
@@ -266,10 +302,63 @@
         });
     }
 
+    // --- NUEVAS FUNCIONES DE FILTRADO Y MASIVAS ---
+
+    function aplicarFiltros() {
+        const inicio = document.getElementById('filtroFechaInicio').value;
+        const fin = document.getElementById('filtroFechaFin').value;
+
+        if(!inicio || !fin) return alert("Selecciona rango de fechas.");
+
+        reportesFiltrados = reportesCargados.filter(r => {
+            const fechaEnvio = r.fechaEnvio.split('T')[0];
+            return fechaEnvio >= inicio && fechaEnvio <= fin;
+        });
+        renderizarLista(reportesFiltrados);
+    }
+
     function filtrarPorNombre() {
         const bus = document.getElementById('buscador').value.toLowerCase();
-        renderizarLista(reportesCargados.filter(r => r.nombre.toLowerCase().includes(bus)));
+        const listaBusqueda = reportesFiltrados.filter(r => r.nombre.toLowerCase().includes(bus));
+        renderizarLista(listaBusqueda);
     }
+
+    function copiarTodosVisibles() {
+        if (reportesFiltrados.length === 0) return alert("No hay reportes en la lista.");
+        
+        let h = `<div style="font-family:Arial, sans-serif;"><h3>REPORTE CONSOLIDADO</h3>`;
+        reportesFiltrados.forEach(r => {
+            h += `<p><strong>${r.nombre} (${r.area})</strong></p>
+                  <table border="1" cellspacing="0" style="border-collapse:collapse; width:100%; margin-bottom:20px;">
+                    <thead><tr bgcolor="#D6EAF8"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr></thead><tbody>`;
+            r.actividades.forEach(a => {
+                h += `<tr><td>${a.fecha}</td><td style="text-align:center;">${a.hrs}</td><td>${a.act}</td></tr>`;
+            });
+            h += `</tbody><tr><td colspan="2" align="right"><strong>TOTAL:</strong></td><td><strong>${r.total} hrs</strong></td></tr></table>`;
+        });
+        h += `</div>`;
+
+        const blob = new Blob([h], { type: 'text/html' });
+        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob })]).then(() => alert("✅ Todos los reportes visibles copiados."));
+    }
+
+    async function archivarTodosVisibles() {
+        if (reportesFiltrados.length === 0) return;
+        if (!confirm(`¿Deseas archivar los ${reportesFiltrados.length} reportes que ves en pantalla?`)) return;
+
+        const batch = db.batch();
+        reportesFiltrados.forEach(r => {
+            const ref = db.collection("reportes_finales").doc(r.idDoc);
+            batch.update(ref, { archivado: true });
+        });
+
+        try {
+            await batch.commit();
+            alert("✅ Selección archivada correctamente.");
+        } catch (e) { alert("Error masivo."); }
+    }
+
+    // --- FUNCIONES DE DETALLE Y COPIADO INDIVIDUAL ---
 
     function verDetalle(r) {
         document.getElementById('modalTitulo').innerText = "Detalle: " + r.nombre;
@@ -290,7 +379,6 @@
         if(!confirm("¿Archivar este reporte?")) return;
         try {
             await db.collection("reportes_finales").doc(idDoc).update({archivado: true});
-            // onSnapshot se encargará de actualizar la lista automáticamente
         } catch(e) { alert("Error al archivar."); }
     }
 
@@ -311,7 +399,7 @@
         });
         h += `</tbody><tfoot bgcolor="#eeeeee"><tr><td colspan="2" style="${tdStyle} text-align:right;"><strong>TOTAL:</strong></td><td style="${tdStyle}"><strong>${r.total} hrs</strong></td></tr></tfoot></table></div>`;
         const blob = new Blob([h], { type: 'text/html' });
-        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob, 'text/plain': new Blob([r.nombre], {type:'text/plain'}) })]).then(() => alert("✅ Copiado para Outlook."));
+        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob })]).then(() => alert("✅ Copiado para Outlook."));
     }
 
     function cambiarVistaJefe() {
