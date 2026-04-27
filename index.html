@@ -45,11 +45,12 @@
         .footer-link a { color: #888; font-size: 0.8rem; text-decoration: none; cursor: pointer; display: block; margin: 5px; }
         .status-badge { font-size: 0.7rem; color: #28a745; font-weight: bold; }
         
-        /* Nuevos estilos para filtros */
         .filter-section { background: #f0f4f8; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #d1d9e6; }
         .filter-grid { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 10px; }
         .filter-group { flex: 1; min-width: 140px; }
         .filter-group label { display: block; font-size: 0.75rem; font-weight: bold; color: #555; margin-bottom: 4px; }
+        .tab-active { background: var(--cap-blue) !important; }
+        .tab-inactive { background: #6c757d !important; }
     </style>
 </head>
 <body>
@@ -107,8 +108,13 @@
 
 <div id="admin-view" class="card hidden">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <h3 style="margin:0;">Panel de Control <span class="status-badge">● Vivo</span></h3>
+        <h3 style="margin:0;">Panel de Control <span class="status-badge" id="txt-status">● Pendientes</span></h3>
         <button onclick="location.reload()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">🔄</button>
+    </div>
+
+    <div style="display: flex; gap: 5px; margin-bottom: 15px;">
+        <button id="btn-tab-pendientes" onclick="cambiarSeccionAdmin('pendientes')" class="btn-bulk tab-active">📥 Pendientes</button>
+        <button id="btn-tab-historial" onclick="cambiarSeccionAdmin('historial')" class="btn-bulk tab-inactive">📜 Historial</button>
     </div>
 
     <div class="filter-section">
@@ -136,15 +142,19 @@
             <button class="btn" style="background:var(--cap-blue); margin:0; height:40px;" onclick="aplicarFiltros()">Filtrar</button>
         </div>
         
-        <input type="text" id="buscador" placeholder="🔍 Buscar por nombre..." onkeyup="filtrarPorNombre()" style="margin-bottom:10px;">
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <input type="text" id="buscadorID" placeholder="🔍 Buscar por ID de empleado..." onkeyup="filtrarPorNombreOID()" style="flex: 1;">
+            <input type="text" id="buscadorNombre" placeholder="🔍 Buscar por Nombre..." onkeyup="filtrarPorNombreOID()" style="flex: 1;">
+        </div>
         
         <div style="display:flex; gap:10px; margin-top:10px;">
             <button class="btn-bulk" style="background:#28a745;" onclick="copiarTodosVisibles()">📋 Copiar Selección</button>
-            <button class="btn-bulk" style="background:#dc3545;" onclick="archivarTodosVisibles()">📁 Archivar Selección</button>
+            <button id="btn-archivar-masivo" class="btn-bulk" style="background:#dc3545;" onclick="archivarTodosVisibles()">📁 Archivar Selección</button>
+            <button class="btn-bulk" style="background:#1d6f42;" onclick="descargarExcel()">🟢 Descargar CSV</button>
         </div>
     </div>
 
-    <div id="lista-reportes">Conectando con la base de datos...</div>
+    <div id="lista-reportes">Conectando...</div>
     <button class="btn" style="background:#6c757d; width:100%; margin-top:20px;" onclick="logout()">Cerrar Sesión</button>
 </div>
 
@@ -183,8 +193,9 @@
     };
 
     let unsubscribe = null; 
-    let reportesCargados = []; // Todos los de la DB
-    let reportesFiltrados = []; // Solo los que se ven en pantalla
+    let reportesCargados = []; 
+    let reportesFiltrados = []; 
+    let vistaActual = 'pendientes';
 
     function agregarFila() {
         const tr = document.createElement('tr');
@@ -212,8 +223,7 @@
         const correo = document.getElementById('correoEmp').value;
 
         if(!area || !nombre || !idEmp || !correo) return alert("❌ Completa todos los campos.");
-        
-        const confirmar = confirm(`¿Confirmas que los datos son correctos?\n\nEmpleado: ${nombre}\nID: ${idEmp}\nÁrea: ${area}`);
+        const confirmar = confirm(`¿Confirmas que los datos son correctos?`);
         if(!confirmar) return;
 
         let filas = [];
@@ -229,9 +239,7 @@
             await db.collection("reportes_finales").add({
                 nombre, area, id: idEmp, correo,
                 total: document.getElementById('totalHoras').innerText,
-                actividades: filas, 
-                fechaEnvio: new Date().toISOString(), 
-                archivado: false
+                actividades: filas, fechaEnvio: new Date().toISOString(), archivado: false
             });
             alert("✅ Enviado correctamente."); location.reload();
         } catch(e) { alert("Error."); }
@@ -247,127 +255,137 @@
             let reps = []; snap.forEach(doc => reps.push(doc.data()));
             reps.sort((a, b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
             verDetalle(reps[0]);
-        } catch (e) { alert("Error de consulta."); }
+        } catch (e) { alert("Error."); }
     }
 
     async function loginSupervisor() {
         const email = document.getElementById('loginEmail').value;
         const pass = document.getElementById('loginPass').value;
-        try { await auth.signInWithEmailAndPassword(email, pass); } catch(e) { alert("Acceso denegado."); }
+        try { await auth.signInWithEmailAndPassword(email, pass); } catch(e) { alert("Error."); }
     }
 
     auth.onAuthStateChanged(user => {
         if (user) {
             toggleView('admin-view');
-            if(user.email === JEFE_EMAIL) {
-                document.getElementById('wrapper-maestro').classList.remove('hidden');
-                activarEscuchaRealTime(document.getElementById('filtroMaestro').value);
-            } else {
-                activarEscuchaRealTime(supervisoresAreas[user.email]);
-            }
+            cambiarSeccionAdmin('pendientes');
         }
     });
 
+    function cambiarSeccionAdmin(seccion) {
+        vistaActual = seccion;
+        const btnP = document.getElementById('btn-tab-pendientes');
+        const btnH = document.getElementById('btn-tab-historial');
+        const txtStatus = document.getElementById('txt-status');
+        const btnArchivar = document.getElementById('btn-archivar-masivo');
+
+        if(seccion === 'pendientes'){
+            btnP.className = 'btn-bulk tab-active';
+            btnH.className = 'btn-bulk tab-inactive';
+            txtStatus.innerText = "● Pendientes";
+            btnArchivar.classList.remove('hidden');
+        } else {
+            btnP.className = 'btn-bulk tab-inactive';
+            btnH.className = 'btn-bulk tab-active';
+            txtStatus.innerText = "● Historial (Archivados)";
+            btnArchivar.classList.add('hidden');
+        }
+
+        const area = (auth.currentUser.email === JEFE_EMAIL) ? document.getElementById('filtroMaestro').value : supervisoresAreas[auth.currentUser.email];
+        activarEscuchaRealTime(area);
+    }
+
     function activarEscuchaRealTime(area) {
         if (unsubscribe) unsubscribe(); 
+        const isArchivado = (vistaActual === 'historial');
         
         unsubscribe = db.collection("reportes_finales")
             .where("area", "==", area)
-            .where("archivado", "==", false)
+            .where("archivado", "==", isArchivado)
             .onSnapshot((snap) => {
                 reportesCargados = [];
                 snap.forEach(doc => reportesCargados.push({idDoc: doc.id, ...doc.data()}));
                 reportesCargados.sort((a, b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
                 reportesFiltrados = [...reportesCargados];
                 renderizarLista(reportesFiltrados);
-            }, (error) => {
-                console.error("Error en tiempo real:", error);
             });
     }
 
     function renderizarLista(lista) {
         const contenedor = document.getElementById('lista-reportes');
-        contenedor.innerHTML = lista.length === 0 ? "Sin reportes pendientes en esta área." : "";
+        contenedor.innerHTML = lista.length === 0 ? "Sin registros." : "";
         lista.forEach(r => {
             const dataStr = JSON.stringify(r).replace(/"/g, '&quot;');
             contenedor.innerHTML += `
                 <div class="admin-entry">
-                    <div><strong>${r.nombre}</strong><br><small>${r.total} hrs | Envío: ${new Date(r.fechaEnvio).toLocaleDateString()}</small></div>
+                    <div><strong>${r.nombre}</strong><br><small>ID: ${r.id} | ${r.total} hrs</small></div>
                     <div>
                         <button class="btn btn-view" onclick='verDetalle(${dataStr})'>Ver</button>
                         <button class="btn btn-copy" onclick='copiarReporteHTML(${dataStr})'>Copiar</button>
-                        <button class="btn btn-archive" onclick="archivarReporte('${r.idDoc}')">Archivar</button>
+                        ${vistaActual === 'pendientes' ? `<button class="btn btn-archive" onclick="archivarReporte('${r.idDoc}')">Archivar</button>` : ''}
                     </div>
                 </div>`;
         });
     }
 
-    // --- NUEVAS FUNCIONES DE FILTRADO Y MASIVAS ---
-
     function aplicarFiltros() {
         const inicio = document.getElementById('filtroFechaInicio').value;
         const fin = document.getElementById('filtroFechaFin').value;
-
-        if(!inicio || !fin) return alert("Selecciona rango de fechas.");
-
+        if(!inicio || !fin) return alert("Selecciona fechas.");
         reportesFiltrados = reportesCargados.filter(r => {
-            const fechaEnvio = r.fechaEnvio.split('T')[0];
-            return fechaEnvio >= inicio && fechaEnvio <= fin;
+            const fecha = r.fechaEnvio.split('T')[0];
+            return fecha >= inicio && fecha <= fin;
         });
         renderizarLista(reportesFiltrados);
     }
 
-    function filtrarPorNombre() {
-        const bus = document.getElementById('buscador').value.toLowerCase();
-        const listaBusqueda = reportesFiltrados.filter(r => r.nombre.toLowerCase().includes(bus));
-        renderizarLista(listaBusqueda);
+    function filtrarPorNombreOID() {
+        const busNombre = document.getElementById('buscadorNombre').value.toLowerCase();
+        const busID = document.getElementById('buscadorID').value.toLowerCase();
+        const final = reportesCargados.filter(r => 
+            r.nombre.toLowerCase().includes(busNombre) && r.id.toLowerCase().includes(busID)
+        );
+        reportesFiltrados = final;
+        renderizarLista(reportesFiltrados);
     }
 
     function copiarTodosVisibles() {
-        if (reportesFiltrados.length === 0) return alert("No hay reportes en la lista.");
-        
-        let h = `<div style="font-family:Arial, sans-serif;"><h3>REPORTE CONSOLIDADO</h3>`;
+        if (reportesFiltrados.length === 0) return;
+        let h = `<div style="font-family:Arial;">`;
         reportesFiltrados.forEach(r => {
-            h += `<p><strong>${r.nombre} (${r.area})</strong></p>
-                  <table border="1" cellspacing="0" style="border-collapse:collapse; width:100%; margin-bottom:20px;">
-                    <thead><tr bgcolor="#D6EAF8"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr></thead><tbody>`;
-            r.actividades.forEach(a => {
-                h += `<tr><td>${a.fecha}</td><td style="text-align:center;">${a.hrs}</td><td>${a.act}</td></tr>`;
-            });
-            h += `</tbody><tr><td colspan="2" align="right"><strong>TOTAL:</strong></td><td><strong>${r.total} hrs</strong></td></tr></table>`;
+            h += `<p><strong>${r.nombre} (${r.id})</strong></p><table border="1" style="border-collapse:collapse;width:100%;">
+                <tr bgcolor="#D6EAF8"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr>`;
+            r.actividades.forEach(a => h += `<tr><td>${a.fecha}</td><td align="center">${a.hrs}</td><td>${a.act}</td></tr>`);
+            h += `<tr><td colspan="2" align="right">Total:</td><td>${r.total} hrs</td></tr></table><br>`;
         });
-        h += `</div>`;
-
-        const blob = new Blob([h], { type: 'text/html' });
-        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob })]).then(() => alert("✅ Todos los reportes visibles copiados."));
+        const blob = new Blob([h + "</div>"], { type: 'text/html' });
+        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob })]).then(() => alert("Copiado."));
     }
 
     async function archivarTodosVisibles() {
         if (reportesFiltrados.length === 0) return;
-        if (!confirm(`¿Deseas archivar los ${reportesFiltrados.length} reportes que ves en pantalla?`)) return;
-
+        if (!confirm(`¿Archivar ${reportesFiltrados.length} reportes?`)) return;
         const batch = db.batch();
-        reportesFiltrados.forEach(r => {
-            const ref = db.collection("reportes_finales").doc(r.idDoc);
-            batch.update(ref, { archivado: true });
-        });
-
-        try {
-            await batch.commit();
-            alert("✅ Selección archivada correctamente.");
-        } catch (e) { alert("Error masivo."); }
+        reportesFiltrados.forEach(r => batch.update(db.collection("reportes_finales").doc(r.idDoc), { archivado: true }));
+        await batch.commit();
+        alert("Archivado.");
     }
 
-    // --- FUNCIONES DE DETALLE Y COPIADO INDIVIDUAL ---
+    function descargarExcel() {
+        if (reportesFiltrados.length === 0) return;
+        let csv = "\uFEFFEmpleado,ID,Area,Fecha,Horas,Actividad\n";
+        reportesFiltrados.forEach(r => r.actividades.forEach(a => {
+            csv += `"${r.nombre}","${r.id}","${r.area}","${a.fecha}","${a.hrs}","${a.act.replace(/"/g, '""')}"\n`;
+        }));
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+        link.download = `Reporte_${vistaActual}.csv`;
+        link.click();
+    }
 
     function verDetalle(r) {
         document.getElementById('modalTitulo').innerText = "Detalle: " + r.nombre;
         let html = `<table border="1" style="width:100%; border-collapse:collapse;"><thead><tr style="background:#003366;color:white;"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr></thead><tbody>`;
-        r.actividades.forEach(a => {
-            const fParts = a.fecha.split('-');
-            const fFormat = fParts.length > 1 ? `${fParts[2]}-${fParts[1]}-${fParts[0]}` : a.fecha;
-            html += `<tr><td>${fFormat}</td><td style="text-align:center;">${a.hrs}</td><td>${a.act}</td></tr>`;
-        });
+        r.actividades.forEach(a => html += `<tr><td>${a.fecha}</td><td style="text-align:center;">${a.hrs}</td><td>${a.act}</td></tr>`);
         html += `</tbody></table><h4 style="text-align:right;">Total: ${r.total} hrs</h4>`;
         document.getElementById('modalCuerpo').innerHTML = html;
         document.getElementById('modalDetalle').style.display = "block";
@@ -376,36 +394,20 @@
     function cerrarModal() { document.getElementById('modalDetalle').style.display = "none"; }
 
     async function archivarReporte(idDoc) {
-        if(!confirm("¿Archivar este reporte?")) return;
-        try {
-            await db.collection("reportes_finales").doc(idDoc).update({archivado: true});
-        } catch(e) { alert("Error al archivar."); }
+        if(!confirm("¿Archivar?")) return;
+        await db.collection("reportes_finales").doc(idDoc).update({archivado: true});
     }
 
     function copiarReporteHTML(r) {
-        const headerBG = "#D6EAF8"; 
-        const thStyle = `background-color:${headerBG}; padding:10px; border:1px solid #002244; text-align:center; color:#000000; font-weight:bold;`;
-        const tdStyle = 'padding:8px; border:1px solid #dddddd; color:#000000;';
-        let h = `<div style="font-family:Arial, sans-serif;">
-                    <p><strong>REPORTE DE HORAS - ÁREA: ${r.area}</strong></p>
-                    <p>Empleado: ${r.nombre} | ID: ${r.id}</p>
-                    <table border="1" cellspacing="0" cellpadding="0" style="border-collapse:collapse; width:100%; border:1px solid #dddddd;">
-                        <thead><tr bgcolor="${headerBG}"><th style="${thStyle}">Fecha</th><th style="${thStyle}">Hrs</th><th style="${thStyle}">Actividad realizada</th></tr></thead>
-                        <tbody>`;
-        r.actividades.forEach(a => {
-            const fParts = a.fecha.split('-');
-            const fFormat = fParts.length > 1 ? `${fParts[2]}-${fParts[1]}-${fParts[0]}` : a.fecha;
-            h += `<tr><td style="${tdStyle}">${fFormat}</td><td style="${tdStyle} text-align:center;">${a.hrs}</td><td style="${tdStyle}">${a.act}</td></tr>`;
-        });
-        h += `</tbody><tfoot bgcolor="#eeeeee"><tr><td colspan="2" style="${tdStyle} text-align:right;"><strong>TOTAL:</strong></td><td style="${tdStyle}"><strong>${r.total} hrs</strong></td></tr></tfoot></table></div>`;
+        let h = `<div style="font-family:Arial;"><p><strong>${r.nombre} | ID: ${r.id}</strong></p><table border="1" style="border-collapse:collapse;width:100%;">
+            <tr bgcolor="#D6EAF8"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr>`;
+        r.actividades.forEach(a => h += `<tr><td>${a.fecha}</td><td align="center">${a.hrs}</td><td>${a.act}</td></tr>`);
+        h += `<tr><td colspan="2" align="right">Total:</td><td>${r.total} hrs</td></tr></table></div>`;
         const blob = new Blob([h], { type: 'text/html' });
-        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob })]).then(() => alert("✅ Copiado para Outlook."));
+        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob })]).then(() => alert("Copiado."));
     }
 
-    function cambiarVistaJefe() {
-        activarEscuchaRealTime(document.getElementById('filtroMaestro').value);
-    }
-
+    function cambiarVistaJefe() { cambiarSeccionAdmin(vistaActual); }
     function logout() { auth.signOut().then(() => location.reload()); }
 </script>
 </body>
