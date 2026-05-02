@@ -4,15 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#003366">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Horas CAP">
-    
-    <link rel="icon" type="image/png" href="https://img.icons8.com/fluency/192/clock.png">
-    <link rel="apple-touch-icon" href="https://img.icons8.com/fluency/512/clock.png">
-    <link rel="manifest" href="manifest.json">
-
     <title>Control de Horas - CAP</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
@@ -39,16 +30,12 @@
         .admin-entry { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
         .modal-content { background: white; margin: 5% auto; padding: 20px; width: 90%; max-width: 800px; border-radius: 12px; max-height: 80vh; overflow-y: auto; }
-        .footer-link { text-align: center; margin-top: 20px; }
-        .footer-link a { color: #888; font-size: 0.8rem; text-decoration: none; cursor: pointer; display: block; margin: 5px; }
-        .status-badge { font-size: 0.7rem; color: #28a745; font-weight: bold; }
-        
         .filter-section { background: #f0f4f8; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #d1d9e6; }
         .filter-grid { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 10px; }
         .filter-group { flex: 1; min-width: 140px; }
-        .filter-group label { display: block; font-size: 0.75rem; font-weight: bold; color: #555; margin-bottom: 4px; }
         .tab-active { background: var(--cap-blue) !important; }
         .tab-inactive { background: #6c757d !important; }
+        .status-badge { font-size: 0.7rem; color: #28a745; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -90,9 +77,9 @@
     <button class="btn" style="background:#28a745; width:auto; padding:10px 20px;" onclick="agregarFila()">+ Añadir día</button>
     <button class="btn btn-send" onclick="enviarReporte()">ENVIAR REPORTE</button>
     
-    <div class="footer-link">
-        <a onclick="consultarUltimo()" style="color: var(--cap-blue); font-weight: bold;">🔍 Consultar mi último reporte</a>
-        <a onclick="toggleView('login-view')">⚙️ Acceso Supervisores</a>
+    <div style="text-align:center; margin-top:20px;">
+        <a onclick="consultarUltimo()" style="color:var(--cap-blue); cursor:pointer; font-weight:bold; font-size:0.9rem;">🔍 Consultar mi último reporte</a><br><br>
+        <a onclick="toggleView('login-view')" style="color:#888; cursor:pointer; font-size:0.8rem;">⚙️ Acceso Supervisores</a>
     </div>
 </div>
 
@@ -105,12 +92,12 @@
 </div>
 
 <div id="admin-view" class="card hidden">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
         <h3 style="margin:0;">Panel CAP <span class="status-badge" id="txt-status">● Pendientes</span></h3>
         <button onclick="location.reload()" style="background:none; border:none; font-size:1.5rem; cursor:pointer;">🔄</button>
     </div>
 
-    <div style="display: flex; gap: 5px; margin-bottom: 15px;">
+    <div style="display:flex; gap:5px; margin-bottom:15px;">
         <button id="btn-tab-pendientes" onclick="cambiarSeccionAdmin('pendientes')" class="btn-bulk tab-active">📥 Pendientes</button>
         <button id="btn-tab-historial" onclick="cambiarSeccionAdmin('historial')" class="btn-bulk tab-inactive">📜 Historial</button>
     </div>
@@ -118,8 +105,8 @@
     <div class="filter-section">
         <div class="filter-grid">
             <div id="wrapper-maestro" class="filter-group hidden">
-                <label>Seleccionar Área:</label>
-                <select id="filtroMaestro" onchange="activarEscuchaRealTime(this.value)">
+                <label>Área:</label>
+                <select id="filtroMaestro" onchange="cambiarAreaJefe()">
                     <option value="Primaria">Primaria</option>
                     <option value="Secundaria">Secundaria</option>
                     <option value="Preparatoria">Preparatoria</option>
@@ -130,29 +117,27 @@
                 </select>
             </div>
             <div class="filter-group">
-                <label>Desde:</label>
-                <input type="date" id="filtroFechaInicio">
+                <label>Desde:</label><input type="date" id="filtroFechaInicio">
             </div>
             <div class="filter-group">
-                <label>Hasta:</label>
-                <input type="date" id="filtroFechaFin">
+                <label>Hasta:</label><input type="date" id="filtroFechaFin">
             </div>
             <button class="btn" style="background:var(--cap-blue); margin:0; height:40px;" onclick="aplicarFiltrosFecha()">Filtrar</button>
         </div>
         
-        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+        <div style="display:flex; gap:10px; margin-bottom:10px;">
             <input type="text" id="buscadorID" placeholder="🔍 ID empleado..." onkeyup="filtrarBusqueda()">
             <input type="text" id="buscadorNombre" placeholder="🔍 Nombre..." onkeyup="filtrarBusqueda()">
         </div>
         
-        <div style="display:flex; gap:10px; margin-top:10px;">
-            <button class="btn-bulk" style="background:#28a745;" onclick="copiarTodosVisibles()">📋 Copiar</button>
-            <button id="btn-archivar-masivo" class="btn-bulk" style="background:#dc3545;" onclick="archivarTodosVisibles()">📁 Archivar</button>
-            <button class="btn-bulk" style="background:#1d6f42;" onclick="descargarExcel()">🟢 Excel</button>
+        <div style="display:flex; gap:10px;">
+            <button class="btn-bulk" style="background:#28a745;" onclick="copiarTodosVisibles()">📋 Copiar Selección</button>
+            <button id="btn-archivar-masivo" class="btn-bulk" style="background:#dc3545;" onclick="archivarTodosVisibles()">📁 Archivar Selección</button>
+            <button class="btn-bulk" style="background:#1d6f42;" onclick="descargarExcel()">🟢 Descargar CSV</button>
         </div>
     </div>
 
-    <div id="lista-reportes">Conectando...</div>
+    <div id="lista-reportes">Cargando...</div>
     <button class="btn" style="background:#6c757d; width:100%; margin-top:20px;" onclick="logout()">Cerrar Sesión</button>
 </div>
 
@@ -160,26 +145,25 @@
     <div class="modal-content">
         <h3 id="modalTitulo" style="color:var(--cap-blue);"></h3>
         <div id="modalCuerpo"></div>
-        <button class="btn" style="background:#6c757d; width:100%; margin-top:20px;" onclick="cerrarModal()">Cerrar</button>
+        <button class="btn" style="background:#6c757d; width:100%; margin-top:10px;" onclick="cerrarModal()">Cerrar</button>
     </div>
 </div>
 
 <script>
+    // CONFIGURACIÓN FIREBASE
     const firebaseConfig = {
         apiKey: "AIzaSyA8kdp8RqrgCPiCCpAQw3Zp06-zLtHsIdU",
         authDomain: "horasadicionales-seccap.firebaseapp.com",
         projectId: "horasadicionales-seccap",
         storageBucket: "horasadicionales-seccap.firebasestorage.app",
         messagingSenderId: "775098466986",
-        appId: "1:775098466986:web:5eda0508046d1dbf2086d3",
-        measurementId: "G-PNZE1CNG8D"
+        appId: "1:775098466986:web:5eda0508046d1dbf2086d3"
     };
-
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
 
-    const JEFE_EMAIL = "jesus.munoz@cap.edu.mx"; 
+    const JEFE_EMAIL = "jesus.munoz@cap.edu.mx";
     const supervisoresAreas = {
         "jesus.cruz@cap.edu.mx": "Oficios",
         "edson.alfonso@cap.edu.mx": "Primaria",
@@ -190,11 +174,12 @@
         "manuel.huerta@cap.edu.mx": "Carpinteria"
     };
 
-    let unsubscribe = null; 
-    let reportesCargados = []; // Datos crudos de Firebase
-    let reportesFiltrados = []; // Datos mostrados en pantalla
+    let unsubscribe = null;
+    let reportesCargados = [];
+    let reportesFiltrados = [];
     let vistaActual = 'pendientes';
 
+    // --- LÓGICA USUARIO ---
     function agregarFila() {
         const tr = document.createElement('tr');
         tr.innerHTML = '<td><input type="date" class="row-fecha"></td><td><input type="number" class="row-horas" oninput="calcularTotal()" step="0.5"></td><td><input type="text" class="row-act"></td>';
@@ -206,20 +191,12 @@
         document.getElementById('totalHoras').innerText = t;
     }
 
-    function toggleView(v) {
-        document.getElementById('user-view').classList.add('hidden');
-        document.getElementById('login-view').classList.add('hidden');
-        document.getElementById('admin-view').classList.add('hidden');
-        document.getElementById(v).classList.remove('hidden');
-    }
-
     async function enviarReporte() {
         const area = document.getElementById('areaEmp').value;
         const nombre = document.getElementById('nombreEmp').value;
-        const idEmp = document.getElementById('idEmp').value.toUpperCase().replace(/\s+/g, '');
+        const idEmp = document.getElementById('idEmp').value.toUpperCase().trim();
         const correo = document.getElementById('correoEmp').value;
-
-        if(!area || !nombre || !idEmp || !correo) return alert("Completa los datos");
+        if(!area || !nombre || !idEmp || !correo) return alert("Faltan datos");
 
         let filas = [];
         document.querySelectorAll('#cuerpoTabla tr').forEach(f => {
@@ -229,32 +206,23 @@
             if(fecha && hrs && act) filas.push({fecha, hrs, act});
         });
 
-        if(filas.length === 0) return alert("Agrega actividades");
+        if(filas.length === 0) return alert("Agregue actividades");
         try {
             await db.collection("reportes_finales").add({
                 nombre, area, id: idEmp, correo,
                 total: document.getElementById('totalHoras').innerText,
                 actividades: filas, fechaEnvio: new Date().toISOString(), archivado: false
             });
-            alert("Enviado"); location.reload();
-        } catch(e) { alert("Error"); }
+            alert("Enviado con éxito"); location.reload();
+        } catch(e) { alert("Error al enviar"); }
     }
 
-    async function loginSupervisor() {
-        const email = document.getElementById('loginEmail').value;
-        const pass = document.getElementById('loginPass').value;
-        try { await auth.signInWithEmailAndPassword(email, pass); } catch(e) { alert("Error de acceso"); }
-    }
-
+    // --- LÓGICA ADMIN ---
     auth.onAuthStateChanged(user => {
         if (user) {
             toggleView('admin-view');
-            if(user.email === JEFE_EMAIL) {
-                document.getElementById('wrapper-maestro').classList.remove('hidden');
-                activarEscuchaRealTime(document.getElementById('filtroMaestro').value);
-            } else {
-                activarEscuchaRealTime(supervisoresAreas[user.email]);
-            }
+            if(user.email === JEFE_EMAIL) document.getElementById('wrapper-maestro').classList.remove('hidden');
+            cambiarSeccionAdmin('pendientes');
         }
     });
 
@@ -264,59 +232,104 @@
         document.getElementById('btn-tab-historial').className = (seccion === 'historial') ? 'btn-bulk tab-active' : 'btn-bulk tab-inactive';
         document.getElementById('txt-status').innerText = (seccion === 'pendientes') ? "● Pendientes" : "● Historial";
         document.getElementById('btn-archivar-masivo').style.display = (seccion === 'pendientes') ? 'block' : 'none';
-
+        
         const area = (auth.currentUser.email === JEFE_EMAIL) ? document.getElementById('filtroMaestro').value : supervisoresAreas[auth.currentUser.email];
         activarEscuchaRealTime(area);
     }
 
+    function cambiarAreaJefe() {
+        activarEscuchaRealTime(document.getElementById('filtroMaestro').value);
+    }
+
     function activarEscuchaRealTime(area) {
         if (unsubscribe) unsubscribe();
-        const esHistorial = (vistaActual === 'historial');
-
+        const isArchivado = (vistaActual === 'historial');
         unsubscribe = db.collection("reportes_finales")
             .where("area", "==", area)
-            .where("archivado", "==", esHistorial)
-            .onSnapshot((snap) => {
+            .where("archivado", "==", isArchivado)
+            .onSnapshot(snap => {
                 reportesCargados = [];
                 snap.forEach(doc => reportesCargados.push({idDoc: doc.id, ...doc.data()}));
-                reportesCargados.sort((a, b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
+                reportesCargados.sort((a,b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
                 reportesFiltrados = [...reportesCargados];
                 renderizarLista(reportesFiltrados);
             });
     }
 
     function renderizarLista(lista) {
-        const contenedor = document.getElementById('lista-reportes');
-        contenedor.innerHTML = lista.length === 0 ? "Sin resultados." : "";
+        const cont = document.getElementById('lista-reportes');
+        cont.innerHTML = lista.length === 0 ? "Sin registros." : "";
         lista.forEach(r => {
             const dataStr = JSON.stringify(r).replace(/"/g, '&quot;');
-            contenedor.innerHTML += `
+            cont.innerHTML += `
                 <div class="admin-entry">
                     <div><strong>${r.nombre}</strong><br><small>ID: ${r.id} | ${r.total} hrs</small></div>
                     <div>
                         <button class="btn btn-view" onclick='verDetalle(${dataStr})'>Ver</button>
                         <button class="btn btn-copy" onclick='copiarReporteHTML(${dataStr})'>Copiar</button>
                         ${vistaActual === 'pendientes' ? `<button class="btn btn-archive" onclick="archivarReporte('${r.idDoc}')">Archivar</button>` : ''}
+                        <button class="btn" style="background:#000; padding:5px 10px; font-size:0.75rem;" onclick="eliminarReporteDefinitivo('${r.idDoc}')">🗑️</button>
                     </div>
                 </div>`;
         });
     }
 
+    // --- FUNCIONES DE COPIADO (SOLUCIÓN ANDROID/IOS) ---
+    async function copiarReporteHTML(r) {
+        let textoPlano = `REPORTE: ${r.nombre} (${r.id})\n`;
+        r.actividades.forEach(a => textoPlano += `${a.fecha} | ${a.hrs} hrs | ${a.act}\n`);
+        textoPlano += `TOTAL: ${r.total} hrs`;
+
+        try {
+            // Intentar copiado de texto plano primero (Máxima compatibilidad)
+            await navigator.clipboard.writeText(textoPlano);
+            alert("Copiado al portapapeles");
+        } catch (err) {
+            // Fallback: Textarea invisible
+            const textArea = document.createElement("textarea");
+            textArea.value = textoPlano;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            alert("Copiado (Modo compatibilidad)");
+        }
+    }
+
+    async function copiarTodosVisibles() {
+        if (reportesFiltrados.length === 0) return;
+        let masivo = "--- REPORTE CAP ---\n\n";
+        reportesFiltrados.forEach(r => {
+            masivo += `${r.nombre} (${r.id})\n`;
+            r.actividades.forEach(a => masivo += `- ${a.fecha}: ${a.hrs} hrs | ${a.act}\n`);
+            masivo += `TOTAL: ${r.total} hrs\n\n`;
+        });
+        try {
+            await navigator.clipboard.writeText(masivo);
+            alert("Selección copiada");
+        } catch (err) {
+            const textArea = document.createElement("textarea");
+            textArea.value = masivo;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            alert("Copiado");
+        }
+    }
+
+    // --- FILTROS Y EXTRAS ---
     function filtrarBusqueda() {
-        const idBus = document.getElementById('buscadorID').value.toLowerCase();
-        const nomBus = document.getElementById('buscadorNombre').value.toLowerCase();
-        
-        reportesFiltrados = reportesCargados.filter(r => 
-            r.id.toLowerCase().includes(idBus) && r.nombre.toLowerCase().includes(nomBus)
-        );
+        const idB = document.getElementById('buscadorID').value.toLowerCase();
+        const nomB = document.getElementById('buscadorNombre').value.toLowerCase();
+        reportesFiltrados = reportesCargados.filter(r => r.id.toLowerCase().includes(idB) && r.nombre.toLowerCase().includes(nomB));
         renderizarLista(reportesFiltrados);
     }
 
     function aplicarFiltrosFecha() {
         const inicio = document.getElementById('filtroFechaInicio').value;
         const fin = document.getElementById('filtroFechaFin').value;
-        if(!inicio || !fin) return alert("Ingresa fechas");
-
+        if(!inicio || !fin) return alert("Seleccione fechas");
         reportesFiltrados = reportesCargados.filter(r => {
             const f = r.fechaEnvio.split('T')[0];
             return f >= inicio && f <= fin;
@@ -324,77 +337,61 @@
         renderizarLista(reportesFiltrados);
     }
 
-    function copiarTodosVisibles() {
-        if (reportesFiltrados.length === 0) return;
-        let h = `<div style="font-family:Arial;">`;
-        reportesFiltrados.forEach(r => {
-            h += `<p><strong>${r.nombre} (${r.id})</strong></p><table border="1" style="border-collapse:collapse;width:100%;">
-                <tr bgcolor="#D6EAF8"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr>`;
-            r.actividades.forEach(a => h += `<tr><td>${a.fecha}</td><td align="center">${a.hrs}</td><td>${a.act}</td></tr>`);
-            h += `<tr><td colspan="2" align="right">Total:</td><td>${r.total} hrs</td></tr></table><br>`;
-        });
-        const blob = new Blob([h + "</div>"], { type: 'text/html' });
-        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob })]).then(() => alert("Copiado"));
-    }
-
     async function archivarTodosVisibles() {
-        if (reportesFiltrados.length === 0) return;
         if (!confirm(`¿Archivar ${reportesFiltrados.length} reportes?`)) return;
         const batch = db.batch();
-        reportesFiltrados.forEach(r => batch.update(db.collection("reportes_finales").doc(r.idDoc), { archivado: true }));
+        reportesFiltrados.forEach(r => batch.update(db.collection("reportes_finales").doc(r.idDoc), {archivado: true}));
         await batch.commit();
-        alert("Completado");
+        alert("Archivado");
+    }
+
+    async function eliminarReporteDefinitivo(idDoc) {
+        if(!confirm("¿BORRAR PERMANENTEMENTE?")) return;
+        await db.collection("reportes_finales").doc(idDoc).delete();
     }
 
     function descargarExcel() {
         if (reportesFiltrados.length === 0) return;
-        let csv = "\uFEFFEmpleado,ID,Area,Fecha Actividad,Horas,Actividad\n";
+        let csv = "\uFEFFEmpleado,ID,Area,Fecha,Horas,Actividad\n";
         reportesFiltrados.forEach(r => r.actividades.forEach(a => {
             csv += `"${r.nombre}","${r.id}","${r.area}","${a.fecha}","${a.hrs}","${a.act.replace(/"/g, '""')}"\n`;
         }));
         const link = document.createElement("a");
         link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-        link.download = `Reporte_CAP.csv`;
+        link.download = "Historial_CAP.csv";
         link.click();
     }
 
-    function verDetalle(r) {
-        document.getElementById('modalTitulo').innerText = "Detalle: " + r.nombre;
-        let html = `<table border="1" style="width:100%; border-collapse:collapse;"><thead><tr style="background:#003366;color:white;"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr></thead><tbody>`;
-        r.actividades.forEach(a => html += `<tr><td>${a.fecha}</td><td style="text-align:center;">${a.hrs}</td><td>${a.act}</td></tr>`);
-        html += `</tbody></table><h4 style="text-align:right;">Total: ${r.total} hrs</h4>`;
-        document.getElementById('modalCuerpo').innerHTML = html;
-        document.getElementById('modalDetalle').style.display = "block";
-    }
-
-    function cerrarModal() { document.getElementById('modalDetalle').style.display = "none"; }
-
-    async function archivarReporte(idDoc) {
-        if(!confirm("¿Archivar?")) return;
-        await db.collection("reportes_finales").doc(idDoc).update({archivado: true});
-    }
-
-    function copiarReporteHTML(r) {
-        let h = `<div style="font-family:Arial;"><p><strong>${r.nombre} | ID: ${r.id}</strong></p><table border="1" style="border-collapse:collapse;width:100%;">
-            <tr bgcolor="#D6EAF8"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr>`;
-        r.actividades.forEach(a => h += `<tr><td>${a.fecha}</td><td align="center">${a.hrs}</td><td>${a.act}</td></tr>`);
-        h += `<tr><td colspan="2" align="right">Total:</td><td>${r.total} hrs</td></tr></table></div>`;
-        const blob = new Blob([h], { type: 'text/html' });
-        navigator.clipboard.write([new ClipboardItem({ 'text/html': blob })]).then(() => alert("Copiado"));
-    }
-
     async function consultarUltimo() {
-        const res = prompt("ID de empleado:");
-        if (!res) return;
-        const idBus = res.toUpperCase().replace(/\s+/g, '');
-        const snap = await db.collection("reportes_finales").where("id", "==", idBus).where("archivado", "==", false).get();
-        if (snap.empty) return alert("Sin pendientes");
+        const id = prompt("ID de empleado:");
+        if(!id) return;
+        const snap = await db.collection("reportes_finales").where("id", "==", id.toUpperCase().trim()).where("archivado", "==", false).get();
+        if(snap.empty) return alert("Sin reportes pendientes.");
         let rs = []; snap.forEach(d => rs.push(d.data()));
         rs.sort((a,b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
         verDetalle(rs[0]);
     }
 
+    function verDetalle(r) {
+        document.getElementById('modalTitulo').innerText = r.nombre;
+        let h = `<table border="1" style="width:100%; border-collapse:collapse;"><thead><tr style="background:#003366;color:white;"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr></thead><tbody>`;
+        r.actividades.forEach(a => h += `<tr><td>${a.fecha}</td><td style="text-align:center;">${a.hrs}</td><td>${a.act}</td></tr>`);
+        h += `</tbody></table><h4 style="text-align:right;">Total: ${r.total} hrs</h4>`;
+        document.getElementById('modalCuerpo').innerHTML = h;
+        document.getElementById('modalDetalle').style.display = "block";
+    }
+
+    function toggleView(v) {
+        ['user-view','login-view','admin-view'].forEach(id => document.getElementById(id).classList.add('hidden'));
+        document.getElementById(v).classList.remove('hidden');
+    }
+    function cerrarModal() { document.getElementById('modalDetalle').style.display = "none"; }
     function logout() { auth.signOut().then(() => location.reload()); }
+    async function archivarReporte(id) { await db.collection("reportes_finales").doc(id).update({archivado: true}); }
+    async function loginSupervisor() {
+        try { await auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPass').value); } 
+        catch(e) { alert("Error de acceso"); }
+    }
 </script>
 </body>
 </html>
