@@ -150,7 +150,7 @@
 </div>
 
 <script>
-    // CONFIGURACIÓN FIREBASE
+    // --- FIREBASE ---
     const firebaseConfig = {
         apiKey: "AIzaSyA8kdp8RqrgCPiCCpAQw3Zp06-zLtHsIdU",
         authDomain: "horasadicionales-seccap.firebaseapp.com",
@@ -179,7 +179,7 @@
     let reportesFiltrados = [];
     let vistaActual = 'pendientes';
 
-    // --- LÓGICA USUARIO ---
+    // --- FUNCIONES CORE ---
     function agregarFila() {
         const tr = document.createElement('tr');
         tr.innerHTML = '<td><input type="date" class="row-fecha"></td><td><input type="number" class="row-horas" oninput="calcularTotal()" step="0.5"></td><td><input type="text" class="row-act"></td>';
@@ -217,7 +217,7 @@
         } catch(e) { alert("Error al enviar"); }
     }
 
-    // --- LÓGICA ADMIN ---
+    // --- ADMIN LOGIC ---
     auth.onAuthStateChanged(user => {
         if (user) {
             toggleView('admin-view');
@@ -274,51 +274,73 @@
         });
     }
 
-    // --- FUNCIONES DE COPIADO (SOLUCIÓN ANDROID/IOS) ---
+    // --- COPIADO PROFESIONAL (HTML + TABLA) ---
     async function copiarReporteHTML(r) {
-        let textoPlano = `REPORTE: ${r.nombre} (${r.id})\n`;
-        r.actividades.forEach(a => textoPlano += `${a.fecha} | ${a.hrs} hrs | ${a.act}\n`);
-        textoPlano += `TOTAL: ${r.total} hrs`;
+        const h = `
+        <div style="font-family:Arial; color:black;">
+            <p><strong>REPORTE: ${r.nombre} (${r.id})</strong></p>
+            <table border="1" style="border-collapse:collapse; width:100%; font-family:Arial;">
+                <tr style="background:#003366; color:white;">
+                    <th style="padding:8px;">Fecha</th><th style="padding:8px;">Hrs</th><th style="padding:8px;">Actividad</th>
+                </tr>
+                ${r.actividades.map(a => `
+                    <tr>
+                        <td style="padding:8px; text-align:center;">${a.fecha}</td>
+                        <td style="padding:8px; text-align:center;">${a.hrs}</td>
+                        <td style="padding:8px;">${a.act}</td>
+                    </tr>`).join('')}
+                <tr><td colspan="2" style="padding:8px; text-align:right;"><strong>Total:</strong></td><td style="padding:8px;"><strong>${r.total} hrs</strong></td></tr>
+            </table>
+        </div>`;
+
+        const t = `${r.nombre} (${r.id})\n${r.actividades.map(a => `${a.fecha} | ${a.hrs} hrs | ${a.act}`).join('\n')}\nTOTAL: ${r.total} hrs`;
 
         try {
-            // Intentar copiado de texto plano primero (Máxima compatibilidad)
-            await navigator.clipboard.writeText(textoPlano);
-            alert("Copiado al portapapeles");
-        } catch (err) {
-            // Fallback: Textarea invisible
+            const blobHtml = new Blob([h], { type: 'text/html' });
+            const blobText = new Blob([t], { type: 'text/plain' });
+            const data = [new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText })];
+            await navigator.clipboard.write(data);
+            alert("✅ Tabla copiada. Pégala en el correo.");
+        } catch (e) {
+            // Fallback para dispositivos que bloquean ClipboardItem
             const textArea = document.createElement("textarea");
-            textArea.value = textoPlano;
+            textArea.value = t;
             document.body.appendChild(textArea);
             textArea.select();
             document.execCommand('copy');
             document.body.removeChild(textArea);
-            alert("Copiado (Modo compatibilidad)");
+            alert("Copiado como texto (Dispositivo no soporta tablas).");
         }
     }
 
     async function copiarTodosVisibles() {
         if (reportesFiltrados.length === 0) return;
-        let masivo = "--- REPORTE CAP ---\n\n";
+        let htmlFinal = `<div style="font-family:Arial;">`;
+        let textoFinal = "";
+
         reportesFiltrados.forEach(r => {
-            masivo += `${r.nombre} (${r.id})\n`;
-            r.actividades.forEach(a => masivo += `- ${a.fecha}: ${a.hrs} hrs | ${a.act}\n`);
-            masivo += `TOTAL: ${r.total} hrs\n\n`;
+            htmlFinal += `
+            <p><strong>${r.nombre} (${r.id})</strong></p>
+            <table border="1" style="border-collapse:collapse; width:100%; margin-bottom:20px;">
+                <tr style="background:#D6EAF8;"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr>
+                ${r.actividades.map(a => `<tr><td>${a.fecha}</td><td style="text-align:center;">${a.hrs}</td><td>${a.act}</td></tr>`).join('')}
+                <tr><td colspan="2" style="text-align:right;">Total:</td><td>${r.total} hrs</td></tr>
+            </table><hr>`;
+            textoFinal += `${r.nombre} (${r.id}) - Total: ${r.total} hrs\n`;
         });
+
         try {
-            await navigator.clipboard.writeText(masivo);
-            alert("Selección copiada");
-        } catch (err) {
-            const textArea = document.createElement("textarea");
-            textArea.value = masivo;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            alert("Copiado");
+            const bH = new Blob([htmlFinal + "</div>"], { type: 'text/html' });
+            const bT = new Blob([textoFinal], { type: 'text/plain' });
+            await navigator.clipboard.write([new ClipboardItem({ 'text/html': bH, 'text/plain': bT })]);
+            alert("✅ Selección copiada como tablas.");
+        } catch (e) {
+            navigator.clipboard.writeText(textoFinal);
+            alert("Copiado como texto.");
         }
     }
 
-    // --- FILTROS Y EXTRAS ---
+    // --- FILTROS Y OTROS ---
     function filtrarBusqueda() {
         const idB = document.getElementById('buscadorID').value.toLowerCase();
         const nomB = document.getElementById('buscadorNombre').value.toLowerCase();
@@ -362,16 +384,6 @@
         link.click();
     }
 
-    async function consultarUltimo() {
-        const id = prompt("ID de empleado:");
-        if(!id) return;
-        const snap = await db.collection("reportes_finales").where("id", "==", id.toUpperCase().trim()).where("archivado", "==", false).get();
-        if(snap.empty) return alert("Sin reportes pendientes.");
-        let rs = []; snap.forEach(d => rs.push(d.data()));
-        rs.sort((a,b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
-        verDetalle(rs[0]);
-    }
-
     function verDetalle(r) {
         document.getElementById('modalTitulo').innerText = r.nombre;
         let h = `<table border="1" style="width:100%; border-collapse:collapse;"><thead><tr style="background:#003366;color:white;"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr></thead><tbody>`;
@@ -391,6 +403,15 @@
     async function loginSupervisor() {
         try { await auth.signInWithEmailAndPassword(document.getElementById('loginEmail').value, document.getElementById('loginPass').value); } 
         catch(e) { alert("Error de acceso"); }
+    }
+    async function consultarUltimo() {
+        const id = prompt("ID de empleado:");
+        if(!id) return;
+        const snap = await db.collection("reportes_finales").where("id", "==", id.toUpperCase().trim()).where("archivado", "==", false).get();
+        if(snap.empty) return alert("Sin reportes pendientes.");
+        let rs = []; snap.forEach(d => rs.push(d.data()));
+        rs.sort((a,b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
+        verDetalle(rs[0]);
     }
 </script>
 </body>
