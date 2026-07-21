@@ -36,7 +36,7 @@
         .tab-active { background: var(--cap-blue) !important; }
         .tab-inactive { background: #6c757d !important; }
         .status-badge { font-size: 0.7rem; color: #28a745; font-weight: bold; }
-        .act-detail { display: none; margin-top: 5px; }
+        .act-detail { display: none; margin-top: 5px; border-color: var(--cap-gold); }
     </style>
 </head>
 <body>
@@ -180,16 +180,16 @@
     let reportesFiltrados = [];
     let vistaActual = 'pendientes';
 
-    // --- OPCIONES DE ACTIVIDAD PREDEFINIDAS ---
-    const OPCIONES_ACTIVIDAD = [
-        "Cubrir vacaciones",
-        "Apoyo a evento",
-        "Limpieza de área",
-        "Mantenimiento / Reparación",
-        "Guardia / Vigilancia",
-        "Cubrir incapacidad",
-        "Otro (Especificar)"
-    ];
+    // --- OPCIONES DE ACTIVIDAD Y SUS PREGUNTAS DINÁMICAS ---
+    const CONFIG_ACTIVIDADES = {
+        "Cubrir vacaciones": "¿A quién cubres? (Ej: Daniel)",
+        "Apoyo a evento": "¿Qué evento o área? (Ej: Graduación)",
+        "Limpieza de área": "¿Qué salón o lugar? (Ej: Salón 301)",
+        "Mantenimiento / Reparación": "¿Qué se reparó? (Ej: Fuga de agua)",
+        "Guardia": "¿Día? (Ej: 16 de Septiembre)",
+        "Cubrir incapacidad": "¿A quién cubres? (Ej: María)",
+        "Otro (Especificar)": "Especifica brevemente la actividad..."
+    };
 
     // --- FORMATEADOR DE FECHAS (YYYY-MM-DD -> DD/MM/YYYY) ---
     function formatearFechaVista(fStr) {
@@ -203,11 +203,13 @@
     function agregarFila() {
         const tr = document.createElement('tr');
         
-        let selectHtml = `<select class="row-act-type" onchange="evaluarOtro(this)">
+        let selectHtml = `<select class="row-act-type" onchange="evaluarDetalle(this)">
                             <option value="">-- Seleccionar opción --</option>`;
-        OPCIONES_ACTIVIDAD.forEach(op => selectHtml += `<option value="${op}">${op}</option>`);
+        Object.keys(CONFIG_ACTIVIDADES).forEach(op => {
+            selectHtml += `<option value="${op}">${op}</option>`;
+        });
         selectHtml += `</select>
-                       <input type="text" class="row-act-detail act-detail" placeholder="Especificar actividad brevemente...">`;
+                       <input type="text" class="row-act-detail act-detail">`;
 
         tr.innerHTML = `<td><input type="date" class="row-fecha"></td>
                         <td><input type="number" class="row-horas" oninput="calcularTotal()" step="0.5"></td>
@@ -215,9 +217,13 @@
         document.getElementById('cuerpoTabla').appendChild(tr);
     }
 
-    function evaluarOtro(selectEl) {
+    // Muestra u oculta el campo de texto dinámico según la opción seleccionada
+    function evaluarDetalle(selectEl) {
         const detailInput = selectEl.nextElementSibling;
-        if (selectEl.value === "Otro (Especificar)") {
+        const opcion = selectEl.value;
+
+        if (opcion && CONFIG_ACTIVIDADES[opcion]) {
+            detailInput.placeholder = CONFIG_ACTIVIDADES[opcion];
             detailInput.style.display = "block";
             detailInput.required = true;
         } else {
@@ -240,25 +246,32 @@
         if(!area || !nombre || !idEmp || !correo) return alert("Por favor complete los datos del encabezado.");
 
         let filas = [];
-        let errorActividad = false;
+        let errorDetalle = false;
 
         document.querySelectorAll('#cuerpoTabla tr').forEach(f => {
             const fecha = f.querySelector('.row-fecha').value;
             const hrs = f.querySelector('.row-horas').value;
             const actType = f.querySelector('.row-act-type').value;
-            const actDetail = f.querySelector('.row-act-detail').value;
+            const actDetail = f.querySelector('.row-act-detail').value.trim();
 
             if(fecha && hrs && actType) {
-                let textoFinalAct = actType;
-                if(actType === "Otro (Especificar)") {
-                    if(!actDetail.trim()) errorActividad = true;
-                    textoFinalAct = `Otro: ${actDetail.trim()}`;
+                if(!actDetail) {
+                    errorDetalle = true;
                 }
+                
+                // Formato limpio final
+                let textoFinalAct = "";
+                if(actType === "Otro (Especificar)") {
+                    textoFinalAct = `Otro: ${actDetail}`;
+                } else {
+                    textoFinalAct = `${actType} - ${actDetail}`;
+                }
+
                 filas.push({fecha, hrs, act: textoFinalAct});
             }
         });
 
-        if(errorActividad) return alert("Por favor especifique el detalle en las actividades donde seleccionó 'Otro'.");
+        if(errorDetalle) return alert("Por favor completa los detalles requeridos en cada actividad seleccionada (ej. nombre del compañero o lugar).");
         if(filas.length === 0) return alert("Agregue al menos una actividad válida.");
 
         try {
@@ -308,11 +321,10 @@
                 reportesCargados = [];
                 snap.forEach(doc => reportesCargados.push({idDoc: doc.id, ...doc.data()}));
                 reportesCargados.sort((a,b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
-                ejecutarFiltrosCombinados(); // Aplica búsquedas/fechas automáticamente
+                ejecutarFiltrosCombinados();
             });
     }
 
-    // --- FILTRADO COMBINADO CORREGIDO (RESUELVE BÚSQUEDA CRUZADA) ---
     function ejecutarFiltrosCombinados() {
         const idB = document.getElementById('buscadorID').value.toLowerCase().trim();
         const nomB = document.getElementById('buscadorNombre').value.toLowerCase().trim();
@@ -320,13 +332,9 @@
         const fin = document.getElementById('filtroFechaFin').value;
 
         reportesFiltrados = reportesCargados.filter(r => {
-            // 1. Filtro por ID (coincidencia exacta o parcial)
             const cumpleID = idB === "" || r.id.toLowerCase().includes(idB);
-            
-            // 2. Filtro por Nombre
             const cumpleNombre = nomB === "" || r.nombre.toLowerCase().includes(nomB);
             
-            // 3. Filtro por Rango de Fechas (Compara fecha de envío del reporte)
             let cumpleFecha = true;
             if (inicio || fin) {
                 const fEnvio = r.fechaEnvio.split('T')[0];
@@ -367,7 +375,6 @@
         });
     }
 
-    // --- COPIADO CON FORMATO BONITO (DD/MM/YYYY) ---
     async function copiarReporteHTML(r) {
         const h = `
         <div style="font-family:Arial; color:black;">
@@ -433,7 +440,6 @@
         }
     }
 
-    // --- ACCIONES MASIVAS Y EXPORTACIÓN ---
     async function archivarTodosVisibles() {
         if (!confirm(`¿Archivar los ${reportesFiltrados.length} reportes filtrados?`)) return;
         const batch = db.batch();
