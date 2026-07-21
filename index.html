@@ -36,10 +36,12 @@
         .tab-active { background: var(--cap-blue) !important; }
         .tab-inactive { background: #6c757d !important; }
         .status-badge { font-size: 0.7rem; color: #28a745; font-weight: bold; }
+        .act-detail { display: none; margin-top: 5px; }
     </style>
 </head>
 <body>
 
+<!-- VISTA USUARIO -->
 <div class="card" id="user-view">
     <h2 style="text-align:center; color: var(--cap-blue);">Reporte de Horas Adicionales</h2>
     <div class="header-grid">
@@ -65,11 +67,7 @@
         <table>
             <thead><tr><th>Fecha</th><th style="width:80px;">Hrs</th><th>Actividad realizada</th></tr></thead>
             <tbody id="cuerpoTabla">
-                <tr>
-                    <td><input type="date" class="row-fecha"></td>
-                    <td><input type="number" class="row-horas" oninput="calcularTotal()" step="0.5"></td>
-                    <td><input type="text" class="row-act"></td>
-                </tr>
+                <!-- Se genera dinámicamente con JS -->
             </tbody>
         </table>
     </div>
@@ -83,6 +81,7 @@
     </div>
 </div>
 
+<!-- VISTA LOGIN -->
 <div id="login-view" class="card hidden">
     <h3>Acceso Supervisores</h3>
     <input type="email" id="loginEmail" placeholder="Correo institucional" style="margin-bottom:10px;">
@@ -91,6 +90,7 @@
     <button class="btn" style="background:#6c757d; width:100%;" onclick="toggleView('user-view')">Volver</button>
 </div>
 
+<!-- VISTA ADMIN -->
 <div id="admin-view" class="card hidden">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
         <h3 style="margin:0;">Panel CAP <span class="status-badge" id="txt-status">● Pendientes</span></h3>
@@ -117,17 +117,17 @@
                 </select>
             </div>
             <div class="filter-group">
-                <label>Desde:</label><input type="date" id="filtroFechaInicio">
+                <label>Desde:</label><input type="date" id="filtroFechaInicio" onchange="ejecutarFiltrosCombinados()">
             </div>
             <div class="filter-group">
-                <label>Hasta:</label><input type="date" id="filtroFechaFin">
+                <label>Hasta:</label><input type="date" id="filtroFechaFin" onchange="ejecutarFiltrosCombinados()">
             </div>
-            <button class="btn" style="background:var(--cap-blue); margin:0; height:40px;" onclick="aplicarFiltrosFecha()">Filtrar</button>
+            <button class="btn" style="background:#6c757d; margin:0; height:40px; padding:0 10px;" onclick="limpiarFiltrosFechas()">Limpiar Fechas</button>
         </div>
         
         <div style="display:flex; gap:10px; margin-bottom:10px;">
-            <input type="text" id="buscadorID" placeholder="🔍 ID empleado..." onkeyup="filtrarBusqueda()">
-            <input type="text" id="buscadorNombre" placeholder="🔍 Nombre..." onkeyup="filtrarBusqueda()">
+            <input type="text" id="buscadorID" placeholder="🔍 ID empleado..." onkeyup="ejecutarFiltrosCombinados()">
+            <input type="text" id="buscadorNombre" placeholder="🔍 Nombre..." onkeyup="ejecutarFiltrosCombinados()">
         </div>
         
         <div style="display:flex; gap:10px;">
@@ -141,6 +141,7 @@
     <button class="btn" style="background:#6c757d; width:100%; margin-top:20px;" onclick="logout()">Cerrar Sesión</button>
 </div>
 
+<!-- MODAL -->
 <div id="modalDetalle" class="modal">
     <div class="modal-content">
         <h3 id="modalTitulo" style="color:var(--cap-blue);"></h3>
@@ -150,7 +151,7 @@
 </div>
 
 <script>
-    // --- FIREBASE ---
+    // --- CONFIGURACIÓN FIREBASE ---
     const firebaseConfig = {
         apiKey: "AIzaSyA8kdp8RqrgCPiCCpAQw3Zp06-zLtHsIdU",
         authDomain: "horasadicionales-seccap.firebaseapp.com",
@@ -179,11 +180,51 @@
     let reportesFiltrados = [];
     let vistaActual = 'pendientes';
 
-    // --- FUNCIONES CORE ---
+    // --- OPCIONES DE ACTIVIDAD PREDEFINIDAS ---
+    const OPCIONES_ACTIVIDAD = [
+        "Cubrir vacaciones",
+        "Apoyo a evento",
+        "Limpieza de área",
+        "Mantenimiento / Reparación",
+        "Guardia / Vigilancia",
+        "Cubrir incapacidad",
+        "Otro (Especificar)"
+    ];
+
+    // --- FORMATEADOR DE FECHAS (YYYY-MM-DD -> DD/MM/YYYY) ---
+    function formatearFechaVista(fStr) {
+        if(!fStr) return "";
+        const partes = fStr.split('T')[0].split('-');
+        if(partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`;
+        return fStr;
+    }
+
+    // --- LÓGICA VISTA USUARIO ---
     function agregarFila() {
         const tr = document.createElement('tr');
-        tr.innerHTML = '<td><input type="date" class="row-fecha"></td><td><input type="number" class="row-horas" oninput="calcularTotal()" step="0.5"></td><td><input type="text" class="row-act"></td>';
+        
+        let selectHtml = `<select class="row-act-type" onchange="evaluarOtro(this)">
+                            <option value="">-- Seleccionar opción --</option>`;
+        OPCIONES_ACTIVIDAD.forEach(op => selectHtml += `<option value="${op}">${op}</option>`);
+        selectHtml += `</select>
+                       <input type="text" class="row-act-detail act-detail" placeholder="Especificar actividad brevemente...">`;
+
+        tr.innerHTML = `<td><input type="date" class="row-fecha"></td>
+                        <td><input type="number" class="row-horas" oninput="calcularTotal()" step="0.5"></td>
+                        <td>${selectHtml}</td>`;
         document.getElementById('cuerpoTabla').appendChild(tr);
+    }
+
+    function evaluarOtro(selectEl) {
+        const detailInput = selectEl.nextElementSibling;
+        if (selectEl.value === "Otro (Especificar)") {
+            detailInput.style.display = "block";
+            detailInput.required = true;
+        } else {
+            detailInput.style.display = "none";
+            detailInput.value = "";
+            detailInput.required = false;
+        }
     }
 
     function calcularTotal() {
@@ -196,28 +237,44 @@
         const nombre = document.getElementById('nombreEmp').value;
         const idEmp = document.getElementById('idEmp').value.toUpperCase().trim();
         const correo = document.getElementById('correoEmp').value;
-        if(!area || !nombre || !idEmp || !correo) return alert("Faltan datos");
+        if(!area || !nombre || !idEmp || !correo) return alert("Por favor complete los datos del encabezado.");
 
         let filas = [];
+        let errorActividad = false;
+
         document.querySelectorAll('#cuerpoTabla tr').forEach(f => {
             const fecha = f.querySelector('.row-fecha').value;
             const hrs = f.querySelector('.row-horas').value;
-            const act = f.querySelector('.row-act').value;
-            if(fecha && hrs && act) filas.push({fecha, hrs, act});
+            const actType = f.querySelector('.row-act-type').value;
+            const actDetail = f.querySelector('.row-act-detail').value;
+
+            if(fecha && hrs && actType) {
+                let textoFinalAct = actType;
+                if(actType === "Otro (Especificar)") {
+                    if(!actDetail.trim()) errorActividad = true;
+                    textoFinalAct = `Otro: ${actDetail.trim()}`;
+                }
+                filas.push({fecha, hrs, act: textoFinalAct});
+            }
         });
 
-        if(filas.length === 0) return alert("Agregue actividades");
+        if(errorActividad) return alert("Por favor especifique el detalle en las actividades donde seleccionó 'Otro'.");
+        if(filas.length === 0) return alert("Agregue al menos una actividad válida.");
+
         try {
             await db.collection("reportes_finales").add({
                 nombre, area, id: idEmp, correo,
                 total: document.getElementById('totalHoras').innerText,
                 actividades: filas, fechaEnvio: new Date().toISOString(), archivado: false
             });
-            alert("Enviado con éxito"); location.reload();
-        } catch(e) { alert("Error al enviar"); }
+            alert("Reporte enviado con éxito."); location.reload();
+        } catch(e) { alert("Error al enviar el reporte."); }
     }
 
-    // --- ADMIN LOGIC ---
+    // Inicializar con 1 fila
+    agregarFila();
+
+    // --- LÓGICA VISTA ADMIN ---
     auth.onAuthStateChanged(user => {
         if (user) {
             toggleView('admin-view');
@@ -251,9 +308,42 @@
                 reportesCargados = [];
                 snap.forEach(doc => reportesCargados.push({idDoc: doc.id, ...doc.data()}));
                 reportesCargados.sort((a,b) => new Date(b.fechaEnvio) - new Date(a.fechaEnvio));
-                reportesFiltrados = [...reportesCargados];
-                renderizarLista(reportesFiltrados);
+                ejecutarFiltrosCombinados(); // Aplica búsquedas/fechas automáticamente
             });
+    }
+
+    // --- FILTRADO COMBINADO CORREGIDO (RESUELVE BÚSQUEDA CRUZADA) ---
+    function ejecutarFiltrosCombinados() {
+        const idB = document.getElementById('buscadorID').value.toLowerCase().trim();
+        const nomB = document.getElementById('buscadorNombre').value.toLowerCase().trim();
+        const inicio = document.getElementById('filtroFechaInicio').value;
+        const fin = document.getElementById('filtroFechaFin').value;
+
+        reportesFiltrados = reportesCargados.filter(r => {
+            // 1. Filtro por ID (coincidencia exacta o parcial)
+            const cumpleID = idB === "" || r.id.toLowerCase().includes(idB);
+            
+            // 2. Filtro por Nombre
+            const cumpleNombre = nomB === "" || r.nombre.toLowerCase().includes(nomB);
+            
+            // 3. Filtro por Rango de Fechas (Compara fecha de envío del reporte)
+            let cumpleFecha = true;
+            if (inicio || fin) {
+                const fEnvio = r.fechaEnvio.split('T')[0];
+                if (inicio && fEnvio < inicio) cumpleFecha = false;
+                if (fin && fEnvio > fin) cumpleFecha = false;
+            }
+
+            return cumpleID && cumpleNombre && cumpleFecha;
+        });
+
+        renderizarLista(reportesFiltrados);
+    }
+
+    function limpiarFiltrosFechas() {
+        document.getElementById('filtroFechaInicio').value = "";
+        document.getElementById('filtroFechaFin').value = "";
+        ejecutarFiltrosCombinados();
     }
 
     function renderizarLista(lista) {
@@ -263,7 +353,10 @@
             const dataStr = JSON.stringify(r).replace(/"/g, '&quot;');
             cont.innerHTML += `
                 <div class="admin-entry">
-                    <div><strong>${r.nombre}</strong><br><small>ID: ${r.id} | ${r.total} hrs</small></div>
+                    <div>
+                        <strong>${r.nombre}</strong> <small>(${formatearFechaVista(r.fechaEnvio)})</small><br>
+                        <small>ID: <strong>${r.id}</strong> | Total: ${r.total} hrs</small>
+                    </div>
                     <div>
                         <button class="btn btn-view" onclick='verDetalle(${dataStr})'>Ver</button>
                         <button class="btn btn-copy" onclick='copiarReporteHTML(${dataStr})'>Copiar</button>
@@ -274,18 +367,19 @@
         });
     }
 
-    // --- COPIADO PROFESIONAL (HTML + TABLA) ---
+    // --- COPIADO CON FORMATO BONITO (DD/MM/YYYY) ---
     async function copiarReporteHTML(r) {
         const h = `
         <div style="font-family:Arial; color:black;">
-            <p><strong>REPORTE: ${r.nombre} (${r.id})</strong></p>
+            <p><strong>REPORTE DE HORAS: ${r.nombre} (${r.id})</strong></p>
+            <p>Área: ${r.area} | Fecha Envio: ${formatearFechaVista(r.fechaEnvio)}</p>
             <table border="1" style="border-collapse:collapse; width:100%; font-family:Arial;">
                 <tr style="background:#003366; color:white;">
-                    <th style="padding:8px;">Fecha</th><th style="padding:8px;">Hrs</th><th style="padding:8px;">Actividad</th>
+                    <th style="padding:8px;">Fecha</th><th style="padding:8px;">Hrs</th><th style="padding:8px;">Actividad realizada</th>
                 </tr>
                 ${r.actividades.map(a => `
                     <tr>
-                        <td style="padding:8px; text-align:center;">${a.fecha}</td>
+                        <td style="padding:8px; text-align:center;">${formatearFechaVista(a.fecha)}</td>
                         <td style="padding:8px; text-align:center;">${a.hrs}</td>
                         <td style="padding:8px;">${a.act}</td>
                     </tr>`).join('')}
@@ -293,38 +387,37 @@
             </table>
         </div>`;
 
-        const t = `${r.nombre} (${r.id})\n${r.actividades.map(a => `${a.fecha} | ${a.hrs} hrs | ${a.act}`).join('\n')}\nTOTAL: ${r.total} hrs`;
+        const t = `${r.nombre} (${r.id})\n${r.actividades.map(a => `${formatearFechaVista(a.fecha)} | ${a.hrs} hrs | ${a.act}`).join('\n')}\nTOTAL: ${r.total} hrs`;
 
         try {
             const blobHtml = new Blob([h], { type: 'text/html' });
             const blobText = new Blob([t], { type: 'text/plain' });
             const data = [new ClipboardItem({ 'text/html': blobHtml, 'text/plain': blobText })];
             await navigator.clipboard.write(data);
-            alert("✅ Tabla copiada. Pégala en el correo.");
+            alert("✅ Tabla copiada con éxito.");
         } catch (e) {
-            // Fallback para dispositivos que bloquean ClipboardItem
             const textArea = document.createElement("textarea");
             textArea.value = t;
             document.body.appendChild(textArea);
             textArea.select();
             document.execCommand('copy');
             document.body.removeChild(textArea);
-            alert("Copiado como texto (Dispositivo no soporta tablas).");
+            alert("Copiado como texto.");
         }
     }
 
     async function copiarTodosVisibles() {
-        if (reportesFiltrados.length === 0) return;
+        if (reportesFiltrados.length === 0) return alert("No hay reportes visibles.");
         let htmlFinal = `<div style="font-family:Arial;">`;
         let textoFinal = "";
 
         reportesFiltrados.forEach(r => {
             htmlFinal += `
-            <p><strong>${r.nombre} (${r.id})</strong></p>
+            <p><strong>Empleado: ${r.nombre} (${r.id})</strong></p>
             <table border="1" style="border-collapse:collapse; width:100%; margin-bottom:20px;">
-                <tr style="background:#D6EAF8;"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr>
-                ${r.actividades.map(a => `<tr><td>${a.fecha}</td><td style="text-align:center;">${a.hrs}</td><td>${a.act}</td></tr>`).join('')}
-                <tr><td colspan="2" style="text-align:right;">Total:</td><td>${r.total} hrs</td></tr>
+                <tr style="background:#003366; color:white;"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr>
+                ${r.actividades.map(a => `<tr><td style="text-align:center;">${formatearFechaVista(a.fecha)}</td><td style="text-align:center;">${a.hrs}</td><td>${a.act}</td></tr>`).join('')}
+                <tr><td colspan="2" style="text-align:right;">Total:</td><td><strong>${r.total} hrs</strong></td></tr>
             </table><hr>`;
             textoFinal += `${r.nombre} (${r.id}) - Total: ${r.total} hrs\n`;
         });
@@ -333,61 +426,45 @@
             const bH = new Blob([htmlFinal + "</div>"], { type: 'text/html' });
             const bT = new Blob([textoFinal], { type: 'text/plain' });
             await navigator.clipboard.write([new ClipboardItem({ 'text/html': bH, 'text/plain': bT })]);
-            alert("✅ Selección copiada como tablas.");
+            alert("✅ Selección copiada como tabla.");
         } catch (e) {
             navigator.clipboard.writeText(textoFinal);
             alert("Copiado como texto.");
         }
     }
 
-    // --- FILTROS Y OTROS ---
-    function filtrarBusqueda() {
-        const idB = document.getElementById('buscadorID').value.toLowerCase();
-        const nomB = document.getElementById('buscadorNombre').value.toLowerCase();
-        reportesFiltrados = reportesCargados.filter(r => r.id.toLowerCase().includes(idB) && r.nombre.toLowerCase().includes(nomB));
-        renderizarLista(reportesFiltrados);
-    }
-
-    function aplicarFiltrosFecha() {
-        const inicio = document.getElementById('filtroFechaInicio').value;
-        const fin = document.getElementById('filtroFechaFin').value;
-        if(!inicio || !fin) return alert("Seleccione fechas");
-        reportesFiltrados = reportesCargados.filter(r => {
-            const f = r.fechaEnvio.split('T')[0];
-            return f >= inicio && f <= fin;
-        });
-        renderizarLista(reportesFiltrados);
-    }
-
+    // --- ACCIONES MASIVAS Y EXPORTACIÓN ---
     async function archivarTodosVisibles() {
-        if (!confirm(`¿Archivar ${reportesFiltrados.length} reportes?`)) return;
+        if (!confirm(`¿Archivar los ${reportesFiltrados.length} reportes filtrados?`)) return;
         const batch = db.batch();
         reportesFiltrados.forEach(r => batch.update(db.collection("reportes_finales").doc(r.idDoc), {archivado: true}));
         await batch.commit();
-        alert("Archivado");
+        alert("Reportes archivados.");
     }
 
     async function eliminarReporteDefinitivo(idDoc) {
-        if(!confirm("¿BORRAR PERMANENTEMENTE?")) return;
+        if(!confirm("¿BORRAR PERMANENTEMENTE ESTE REPORTE?")) return;
         await db.collection("reportes_finales").doc(idDoc).delete();
     }
 
     function descargarExcel() {
-        if (reportesFiltrados.length === 0) return;
+        if (reportesFiltrados.length === 0) return alert("No hay datos para exportar.");
         let csv = "\uFEFFEmpleado,ID,Area,Fecha,Horas,Actividad\n";
         reportesFiltrados.forEach(r => r.actividades.forEach(a => {
-            csv += `"${r.nombre}","${r.id}","${r.area}","${a.fecha}","${a.hrs}","${a.act.replace(/"/g, '""')}"\n`;
+            csv += `"${r.nombre}","${r.id}","${r.area}","${formatearFechaVista(a.fecha)}","${a.hrs}","${a.act.replace(/"/g, '""')}"\n`;
         }));
         const link = document.createElement("a");
         link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-        link.download = "Historial_CAP.csv";
+        link.download = "Reporte_Horas_CAP.csv";
         link.click();
     }
 
     function verDetalle(r) {
-        document.getElementById('modalTitulo').innerText = r.nombre;
-        let h = `<table border="1" style="width:100%; border-collapse:collapse;"><thead><tr style="background:#003366;color:white;"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr></thead><tbody>`;
-        r.actividades.forEach(a => h += `<tr><td>${a.fecha}</td><td style="text-align:center;">${a.hrs}</td><td>${a.act}</td></tr>`);
+        document.getElementById('modalTitulo').innerText = `${r.nombre} (${r.id})`;
+        let h = `<p><strong>Fecha de envío:</strong> ${formatearFechaVista(r.fechaEnvio)}</p>
+                 <table border="1" style="width:100%; border-collapse:collapse;">
+                 <thead><tr style="background:#003366;color:white;"><th>Fecha</th><th>Hrs</th><th>Actividad</th></tr></thead><tbody>`;
+        r.actividades.forEach(a => h += `<tr><td style="text-align:center;">${formatearFechaVista(a.fecha)}</td><td style="text-align:center;">${a.hrs}</td><td>${a.act}</td></tr>`);
         h += `</tbody></table><h4 style="text-align:right;">Total: ${r.total} hrs</h4>`;
         document.getElementById('modalCuerpo').innerHTML = h;
         document.getElementById('modalDetalle').style.display = "block";
